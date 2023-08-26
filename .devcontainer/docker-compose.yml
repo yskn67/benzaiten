@@ -1,0 +1,6 @@
+services:
+  benzaiten:
+    build: .
+    volumes:
+      - ../:/workspace:cached
+    command: sleep infinity

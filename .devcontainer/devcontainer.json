@@ -1,0 +1,8 @@
+{
+	"dockerComposeFile": "docker-compose.yml",
+    "service": "benzaiten",
+    "workspaceFolder": "/workspace",
+	"extensions": [
+		"ms-python.python"
+	]
+}

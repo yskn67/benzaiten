@@ -1,0 +1,12 @@
+torch
+torchvision
+torchaudio
+mido
+midi2audio
+music21
+fluidsynth
+numpy
+matplotlib
+jupyter
+tensorflow
+tensorflow-probability
