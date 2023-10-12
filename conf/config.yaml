@@ -1,0 +1,4 @@
+defaults:
+  - data: lstm_ohe
+  - model: lstm_ohe
+  - train: lstm_ohe

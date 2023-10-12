@@ -1,8 +1,40 @@
 {
 	"dockerComposeFile": "docker-compose.yml",
-    "service": "benzaiten",
-    "workspaceFolder": "/workspace",
-	"extensions": [
-		"ms-python.python"
-	]
+	"service": "benzaiten",
+	"workspaceFolder": "/workspace",
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"esbenp.prettier-vscode",
+				"ms-python.python",
+				"ms-python.black-formatter",
+				"njpwerner.autodocstring",
+				"KevinRose.vsc-python-indent"
+			],
+			"settings": {
+				"editor.renderWhitespace": "all",
+				"python.defaultInterpreterPath": "/usr/local/bin/python",
+				"[json][jsonc]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode",
+					"editor.formatOnSave": true,
+					"editor.codeActionsOnSave": {
+						"source.fixAll": true
+					}
+				},
+				"[python]": {
+					"editor.tabSize": 4,
+					"editor.insertSpaces": true,
+					"editor.defaultFormatter": "ms-python.black-formatter",
+					"editor.formatOnSave": true,
+					"editor.codeActionsOnSave": {
+						"source.fixAll": true,
+						"source.organizeImports": true
+					}
+				},
+				"black-formatter.args": [
+					"--line-length=120"
+				]
+			}
+		}
+	}
 }

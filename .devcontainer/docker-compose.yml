@@ -3,4 +3,6 @@ services:
     build: .
     volumes:
       - ../:/workspace:cached
-    command: sleep infinity
+    ports:
+      - 8888:8888
+    command: jupyter lab --port=8888 --ip=0.0.0.0 --allow-root --no-browser
