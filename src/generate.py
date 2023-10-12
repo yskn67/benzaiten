@@ -1,3 +1,4 @@
+import os
 import csv
 
 import torch
@@ -144,42 +145,49 @@ def show_and_play_midi(pianoroll, transpose, src_filename, dst_filename1, dst_fi
     fs.midi_to_audio(dst_filename2, "output.wav")
 
 
-chords = read_chord_file('../data/input/origin/sample1_chord.csv')
-manyhot_chords = TransformOnehotInference().transform(chords)
+# @hydra.main(version_base=None, config_path="../conf", config_name="config")
+# def main(cfg: DictConfig) -> None:
+def main() -> None:
+    basedir = "../data/input/origin/"
+    #backing_file = "sample1_backing.mid"       # 適宜変更すること
+    #chord_file = "sample1_chord.csv"           # 適宜変更すること
+    backing_file = "sample5_backing.mid"       # 適宜変更すること
+    chord_file = "sample5_chord.csv"           # 適宜変更すること
 
-model = Seq2SeqMelodyGenerationModel.load_from_checkpoint("../lightning_logs/version_5/checkpoints/epoch=99-step=5400.ckpt")
-model.eval()
+    # 2023.08.04 変更
+    # output_file1 = "output1.mid"                # 自分のエントリーネームに変更すること
+    # output_file2 = "output2.mid"
+    output_file1 = "output_sample5_7.mid"                # 自分のエントリーネームに変更すること
+    output_file2 = "output_sample5_7_full.mid"
 
-with torch.no_grad():
-    latent = torch.randn(1, 32)
-    h_n, c_n = (None, None)
-    outs = []
-    for chords_per_measure in manyhot_chords:
-        batch = {
-            "latent": latent,
-            "chords": torch.tensor(chords_per_measure, dtype=torch.float).unsqueeze(0)
-        }
-        if h_n is not None:
-            batch['h'] = h_n
-        if c_n is not None:
-            batch['c'] = c_n
-        out, h_n, c_n = model.decoder(batch)
-        outs.append(out.squeeze(0))
-    out = torch.cat(outs, dim=0)
+    chords = read_chord_file(os.path.join(basedir, chord_file))
+    manyhot_chords = TransformOnehotInference().transform(chords)
 
-pianoroll = out.numpy()
+    model = Seq2SeqMelodyGenerationModel.load_from_checkpoint("../lightning_logs/version_5/checkpoints/epoch=99-step=5400.ckpt")
+    model.eval()
 
-basedir = "../data/input/origin/"
-#backing_file = "sample1_backing.mid"       # 適宜変更すること
-#chord_file = "sample1_chord.csv"           # 適宜変更すること
-backing_file = "sample5_backing.mid"       # 適宜変更すること
-chord_file = "sample5_chord.csv"           # 適宜変更すること
+    with torch.no_grad():
+        latent = torch.randn(1, 32)
+        h_n, c_n = (None, None)
+        outs = []
+        for chords_per_measure in manyhot_chords:
+            batch = {
+                "latent": latent,
+                "chords": torch.tensor(chords_per_measure, dtype=torch.float).unsqueeze(0)
+            }
+            if h_n is not None:
+                batch['h'] = h_n
+            if c_n is not None:
+                batch['c'] = c_n
+            out, h_n, c_n = model.decoder(batch)
+            outs.append(out.squeeze(0))
+        out = torch.cat(outs, dim=0)
 
-# 2023.08.04 変更
-# output_file1 = "output1.mid"                # 自分のエントリーネームに変更すること
-# output_file2 = "output2.mid"
-output_file1 = "output_sample5_3.mid"                # 自分のエントリーネームに変更すること
-output_file2 = "output_sample5_3_full.mid"
+    pianoroll = out.numpy()
 
-show_and_play_midi(pianoroll, 12, basedir + backing_file,
-                   basedir + output_file1, basedir + output_file2)
+    show_and_play_midi(pianoroll, 12, basedir + backing_file,
+                    basedir + output_file1, basedir + output_file2)
+
+
+if __name__ == "__main__":
+    main()
