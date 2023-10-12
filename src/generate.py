@@ -1,11 +1,13 @@
 import os
 import csv
 
+import hydra
 import torch
 import numpy as np
 import music21
 import mido
 import midi2audio
+from omegaconf import DictConfig
 
 from model import Seq2SeqMelodyGenerationModel
 
@@ -59,20 +61,17 @@ class TransformOnehotInference:
             manyhot_chords.append(manyhot_bar_chords)
         return manyhot_chords
 
-NOTENUM_FROM = 36
 TICKS_PER_BEAT = 480
-MELODY_PROG_CHG = 73
-MELODY_CH = 0
 INTRO_BLANK_MEASURES = 4
 N_BEATS = 4
 BEAT_RESO = 4
 
 # ピアノロール（one-hot vector列）をノートナンバー列に変換
-def calc_notenums_from_pianoroll(pianoroll):
+def calc_notenums_from_pianoroll(pianoroll, min_note_number: int = 36):
     notenums = []
     for i in range(pianoroll.shape[0]):
         n = np.argmax(pianoroll[i, :])
-        nn = -1 if n == pianoroll.shape[1] - 1 else n + NOTENUM_FROM
+        nn = -1 if n == pianoroll.shape[1] - 1 else n + min_note_number
         notenums.append(nn)
     return notenums
 
@@ -111,11 +110,11 @@ def make_midi_track(notenums, durations, transpose, ticks_per_beat):
 
 ####### 2023.08.04 追加
 # プログラムチェンジを指定したものに差し替え
-def replace_prog_chg(midi):
+def replace_prog_chg(midi, melody_ch: int = 0, melody_prog_chg: int = 73):
     for track in midi.tracks:
         for msg in track:
-            if msg.type == 'program_change' and msg.channel == MELODY_CH:
-                msg.program = MELODY_PROG_CHG
+            if msg.type == 'program_change' and msg.channel == melody_ch:
+                msg.program = melody_prog_chg
 
 ####### 2023.08.04 追加
 # MIDIファイル（提出用、伴奏なし）を生成
@@ -133,37 +132,19 @@ def make_midi_for_check(notenums, durations, transpose, src_filename, dst_filena
     midi.tracks.append(make_midi_track(notenums, durations, transpose, midi.ticks_per_beat))
     midi.save(dst_filename)
 
-####### 2023.08.04 修正
-# ピアノロールを描画し、MIDIファイルを再生
-def show_and_play_midi(pianoroll, transpose, src_filename, dst_filename1, dst_filename2):
-    notenums = calc_notenums_from_pianoroll(pianoroll)
-    notenums, durations = calc_durations(notenums)
-    ###### 2023.08.04 変更
-    make_midi_for_submission(notenums, durations, transpose, dst_filename1)
-    make_midi_for_check(notenums, durations, transpose, src_filename, dst_filename2)
-    fs = midi2audio.FluidSynth(sound_font="/usr/share/sounds/sf2/FluidR3_GM.sf2")
-    fs.midi_to_audio(dst_filename2, "output.wav")
 
+@hydra.main(version_base=None, config_path="../conf", config_name="config")
+def main(cfg: DictConfig) -> None:
+    chord_file_path = os.path.join(cfg.generate.input_dir, cfg.generate.chord_file)
+    backing_file_path = os.path.join(cfg.generate.input_dir, cfg.generate.backing_file)
+    submission_midi_file_path = os.path.join(cfg.generate.output_dir, cfg.generate.submission_midi_file)
+    full_midi_file_path = os.path.join(cfg.generate.output_dir, cfg.generate.full_midi_file)
+    wav_file_path = os.path.join(cfg.generate.output_dir, "output.wav")
 
-# @hydra.main(version_base=None, config_path="../conf", config_name="config")
-# def main(cfg: DictConfig) -> None:
-def main() -> None:
-    basedir = "../data/input/origin/"
-    #backing_file = "sample1_backing.mid"       # 適宜変更すること
-    #chord_file = "sample1_chord.csv"           # 適宜変更すること
-    backing_file = "sample5_backing.mid"       # 適宜変更すること
-    chord_file = "sample5_chord.csv"           # 適宜変更すること
-
-    # 2023.08.04 変更
-    # output_file1 = "output1.mid"                # 自分のエントリーネームに変更すること
-    # output_file2 = "output2.mid"
-    output_file1 = "output_sample5_7.mid"                # 自分のエントリーネームに変更すること
-    output_file2 = "output_sample5_7_full.mid"
-
-    chords = read_chord_file(os.path.join(basedir, chord_file))
+    chords = read_chord_file(chord_file_path, n_beats=cfg.data.n_beats, n_parts_of_beat=cfg.data.n_parts_of_beat)
     manyhot_chords = TransformOnehotInference().transform(chords)
 
-    model = Seq2SeqMelodyGenerationModel.load_from_checkpoint("../lightning_logs/version_5/checkpoints/epoch=99-step=5400.ckpt")
+    model = Seq2SeqMelodyGenerationModel.load_from_checkpoint("lightning_logs/version_5/checkpoints/epoch=99-step=5400.ckpt")
     model.eval()
 
     with torch.no_grad():
@@ -184,9 +165,12 @@ def main() -> None:
         out = torch.cat(outs, dim=0)
 
     pianoroll = out.numpy()
-
-    show_and_play_midi(pianoroll, 12, basedir + backing_file,
-                    basedir + output_file1, basedir + output_file2)
+    notenums = calc_notenums_from_pianoroll(pianoroll, min_note_number=cfg.data.min_note_number)
+    notenums, durations = calc_durations(notenums)
+    make_midi_for_submission(notenums, durations, 12, submission_midi_file_path)
+    make_midi_for_check(notenums, durations, 12, backing_file_path, full_midi_file_path)
+    fs = midi2audio.FluidSynth(sound_font="/usr/share/sounds/sf2/FluidR3_GM.sf2")
+    fs.midi_to_audio(full_midi_file_path, wav_file_path)
 
 
 if __name__ == "__main__":

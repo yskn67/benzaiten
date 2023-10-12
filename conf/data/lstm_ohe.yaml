@@ -1,3 +1,7 @@
 n_bar: 2
+n_beats: 4
+n_parts_of_beat: 4
 min_note_number: 36
 max_note_number: 89
+ticks_per_beat: 480
+intro_blank_measures: 4

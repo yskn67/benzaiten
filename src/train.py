@@ -3,7 +3,7 @@ import glob
 import torch
 import lightning.pytorch as pl
 import hydra
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 
 from dataset import make_onehot_dataset
 from model import Seq2SeqMelodyGenerationModel
