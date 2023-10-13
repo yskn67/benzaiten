@@ -61,10 +61,6 @@ class TransformOnehotInference:
             manyhot_chords.append(manyhot_bar_chords)
         return manyhot_chords
 
-TICKS_PER_BEAT = 480
-INTRO_BLANK_MEASURES = 4
-N_BEATS = 4
-BEAT_RESO = 4
 
 # ピアノロール（one-hot vector列）をノートナンバー列に変換
 def calc_notenums_from_pianoroll(pianoroll, min_note_number: int = 36):
@@ -74,6 +70,7 @@ def calc_notenums_from_pianoroll(pianoroll, min_note_number: int = 36):
         nn = -1 if n == pianoroll.shape[1] - 1 else n + min_note_number
         notenums.append(nn)
     return notenums
+
 
 # 連続するノートナンバーを統合して (notenums, durations) に変換
 def calc_durations(notenums):
@@ -90,47 +87,62 @@ def calc_durations(notenums):
             k += 1
     return notenums, duration
 
-####### 2023.08.04 追加
-# MIDIトラックを生成（make_midiから呼び出される）
-def make_midi_track(notenums, durations, transpose, ticks_per_beat):
-    track = mido.MidiTrack()
-    init_tick = INTRO_BLANK_MEASURES * N_BEATS * ticks_per_beat
-    prev_tick = 0
-    for i in range(len(notenums)):
-        if notenums[i] > 0:
-            curr_tick = int(i * ticks_per_beat / BEAT_RESO) + init_tick
-            track.append(mido.Message('note_on', note=notenums[i]+transpose,
-                                      velocity=100, time=curr_tick - prev_tick))
-            prev_tick = curr_tick
-            curr_tick = int((i + durations[i]) * ticks_per_beat / BEAT_RESO) + init_tick
-            track.append(mido.Message('note_off', note=notenums[i]+transpose,
-                                      velocity=100, time=curr_tick - prev_tick))
-            prev_tick = curr_tick
-    return track
 
-####### 2023.08.04 追加
-# プログラムチェンジを指定したものに差し替え
-def replace_prog_chg(midi, melody_ch: int = 0, melody_prog_chg: int = 73):
-    for track in midi.tracks:
-        for msg in track:
-            if msg.type == 'program_change' and msg.channel == melody_ch:
-                msg.program = melody_prog_chg
+class MidiGenerator:
+    def __init__(
+        self,
+        notenums,
+        durations,
+        transpose,
+        ticks_per_beat: int = 480,
+        intro_blank_measures: int = 4,
+        n_beats: int = 4,
+        n_parts_of_beat: int = 4
+    ) -> None:
+        self.notenums = notenums
+        self.durations = durations
+        self.transpose = transpose
+        self.ticks_per_beat = ticks_per_beat
+        self.intro_blank_measures = intro_blank_measures
+        self.n_beats = n_beats
+        self.n_parts_of_beat = n_parts_of_beat
 
-####### 2023.08.04 追加
-# MIDIファイル（提出用、伴奏なし）を生成
-def make_midi_for_submission(notenums, durations, transpose, dst_filename):
-    midi = mido.MidiFile(type=1)
-    midi.ticks_per_beat = TICKS_PER_BEAT
-    midi.tracks.append(make_midi_track(notenums, durations, transpose, TICKS_PER_BEAT))
-    midi.save(dst_filename)
+    def _make_midi_track(self, ticks_per_beat=None):
+        if ticks_per_beat is None:
+            ticks_per_beat = self.ticks_per_beat
 
-####### 2023.08.04 修正
-# MIDIファイル（チェック用、伴奏あり）を生成
-def make_midi_for_check(notenums, durations, transpose, src_filename, dst_filename):
-    midi = mido.MidiFile(src_filename)
-    replace_prog_chg(midi)
-    midi.tracks.append(make_midi_track(notenums, durations, transpose, midi.ticks_per_beat))
-    midi.save(dst_filename)
+        track = mido.MidiTrack()
+        init_tick = self.intro_blank_measures * self.n_beats * ticks_per_beat
+        prev_tick = 0
+        for i in range(len(self.notenums)):
+            if self.notenums[i] > 0:
+                curr_tick = int(i * ticks_per_beat / self.n_parts_of_beat) + init_tick
+                track.append(mido.Message('note_on', note=self.notenums[i] + self.transpose,
+                                          velocity=100, time=curr_tick - prev_tick))
+                prev_tick = curr_tick
+                curr_tick = int((i + self.durations[i]) * ticks_per_beat / self.n_parts_of_beat) + init_tick
+                track.append(mido.Message('note_off', note=self.notenums[i] + self.transpose,
+                                          velocity=100, time=curr_tick - prev_tick))
+                prev_tick = curr_tick
+        return track
+
+    def _replace_prog_chg(self, midi, melody_ch: int = 0, melody_prog_chg: int = 73):
+        for track in midi.tracks:
+            for msg in track:
+                if msg.type == 'program_change' and msg.channel == melody_ch:
+                    msg.program = melody_prog_chg
+
+    def make_midi_for_submission(self, dst_filename):
+        midi = mido.MidiFile(type=1)
+        midi.ticks_per_beat = self.ticks_per_beat
+        midi.tracks.append(self._make_midi_track())
+        midi.save(dst_filename)
+
+    def make_midi_for_check(self, src_filename, dst_filename):
+        midi = mido.MidiFile(src_filename)
+        self._replace_prog_chg(midi)
+        midi.tracks.append(self._make_midi_track(ticks_per_beat=midi.ticks_per_beat))
+        midi.save(dst_filename)
 
 
 @hydra.main(version_base=None, config_path="../conf", config_name="config")
@@ -148,7 +160,7 @@ def main(cfg: DictConfig) -> None:
     model.eval()
 
     with torch.no_grad():
-        latent = torch.randn(1, 32)
+        latent = torch.randn(1, cfg.model.latent_dim)
         h_n, c_n = (None, None)
         outs = []
         for chords_per_measure in manyhot_chords:
@@ -167,8 +179,18 @@ def main(cfg: DictConfig) -> None:
     pianoroll = out.numpy()
     notenums = calc_notenums_from_pianoroll(pianoroll, min_note_number=cfg.data.min_note_number)
     notenums, durations = calc_durations(notenums)
-    make_midi_for_submission(notenums, durations, 12, submission_midi_file_path)
-    make_midi_for_check(notenums, durations, 12, backing_file_path, full_midi_file_path)
+    midi_generator = MidiGenerator(
+        notenums,
+        durations,
+        12,
+        ticks_per_beat=cfg.data.ticks_per_beat,
+        intro_blank_measures=cfg.data.intro_blank_measures,
+        n_beats=cfg.data.n_beats,
+        n_parts_of_beat=cfg.data.n_parts_of_beat
+    )
+
+    midi_generator.make_midi_for_submission(submission_midi_file_path)
+    midi_generator.make_midi_for_check(backing_file_path, full_midi_file_path)
     fs = midi2audio.FluidSynth(sound_font="/usr/share/sounds/sf2/FluidR3_GM.sf2")
     fs.midi_to_audio(full_midi_file_path, wav_file_path)
 
