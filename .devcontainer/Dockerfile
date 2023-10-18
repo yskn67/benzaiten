@@ -3,7 +3,7 @@
 FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
 
 RUN apt update
-RUN apt install -y fluidsynth ffmpeg musescore3 build-essential libssl-dev libffi-dev python3 python3-dev python3-pip git
+RUN apt install -y fluidsynth ffmpeg musescore3 build-essential libssl-dev libffi-dev python3 python3-dev python3-pip git wget unzip
 # build-essential libasound2-dev libjack-dev portaudio19-dev sox
 
 # Copy the requirements.txt and run pip install.
