@@ -156,7 +156,7 @@ def main(cfg: DictConfig) -> None:
     chords = read_chord_file(chord_file_path, n_beats=cfg.data.n_beats, n_parts_of_beat=cfg.data.n_parts_of_beat)
     manyhot_chords = TransformOnehotInference().transform(chords)
 
-    model = Seq2SeqMelodyGenerationModel.load_from_checkpoint("lightning_logs/version_5/checkpoints/epoch=99-step=5400.ckpt")
+    model = Seq2SeqMelodyGenerationModel.load_from_checkpoint("lightning_logs/version_0/checkpoints/epoch=99-step=5400.ckpt", map_location="cpu")
     model.eval()
 
     with torch.no_grad():
