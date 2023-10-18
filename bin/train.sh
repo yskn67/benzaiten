@@ -2,4 +2,4 @@
 
 set -euxo pipefail
 
-python src/train.py
+python3 src/train.py

@@ -2,4 +2,4 @@
 
 set -euxo pipefail
 
-python src/generate.py
+python3 src/generate.py
