@@ -13,7 +13,7 @@
 			],
 			"settings": {
 				"editor.renderWhitespace": "all",
-				"python.defaultInterpreterPath": "/usr/local/bin/python",
+				"python.defaultInterpreterPath": "/usr/bin/python3",
 				"[json][jsonc]": {
 					"editor.defaultFormatter": "esbenp.prettier-vscode",
 					"editor.formatOnSave": true,

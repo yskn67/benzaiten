@@ -1,7 +1,4 @@
 numpy
-torch
-torchvision
-torchaudio
 mido
 midi2audio
 music21
