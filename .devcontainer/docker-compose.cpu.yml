@@ -1,0 +1,9 @@
+services:
+  benzaiten:
+    build: .
+    volumes:
+      - ../:/workspace:cached
+    ports:
+      - 8888:8888
+    command: jupyter lab --port=8888 --ip=0.0.0.0 --allow-root --no-browser
+    tty: true

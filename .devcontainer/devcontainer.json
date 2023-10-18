@@ -1,40 +1,38 @@
 {
-	"dockerComposeFile": "docker-compose.yml",
-	"service": "benzaiten",
-	"workspaceFolder": "/workspace",
-	"customizations": {
-		"vscode": {
-			"extensions": [
-				"esbenp.prettier-vscode",
-				"ms-python.python",
-				"ms-python.black-formatter",
-				"njpwerner.autodocstring",
-				"KevinRose.vsc-python-indent"
-			],
-			"settings": {
-				"editor.renderWhitespace": "all",
-				"python.defaultInterpreterPath": "/usr/bin/python3",
-				"[json][jsonc]": {
-					"editor.defaultFormatter": "esbenp.prettier-vscode",
-					"editor.formatOnSave": true,
-					"editor.codeActionsOnSave": {
-						"source.fixAll": true
-					}
-				},
-				"[python]": {
-					"editor.tabSize": 4,
-					"editor.insertSpaces": true,
-					"editor.defaultFormatter": "ms-python.black-formatter",
-					"editor.formatOnSave": true,
-					"editor.codeActionsOnSave": {
-						"source.fixAll": true,
-						"source.organizeImports": true
-					}
-				},
-				"black-formatter.args": [
-					"--line-length=120"
-				]
-			}
-		}
-	}
+  "dockerComposeFile": "docker-compose.cpu.yml",
+  "service": "benzaiten",
+  "workspaceFolder": "/workspace",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "esbenp.prettier-vscode",
+        "ms-python.python",
+        "ms-python.black-formatter",
+        "njpwerner.autodocstring",
+        "KevinRose.vsc-python-indent"
+      ],
+      "settings": {
+        "editor.renderWhitespace": "all",
+        "python.defaultInterpreterPath": "/usr/bin/python3",
+        "[json][jsonc]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode",
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.fixAll": true
+          }
+        },
+        "[python]": {
+          "editor.tabSize": 4,
+          "editor.insertSpaces": true,
+          "editor.defaultFormatter": "ms-python.black-formatter",
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.fixAll": true,
+            "source.organizeImports": true
+          }
+        },
+        "black-formatter.args": ["--line-length=120"]
+      }
+    }
+  }
 }
