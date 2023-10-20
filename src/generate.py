@@ -118,11 +118,11 @@ class MidiGenerator:
             if self.notenums[i] > 0:
                 curr_tick = int(i * ticks_per_beat / self.n_parts_of_beat) + init_tick
                 track.append(mido.Message('note_on', note=self.notenums[i] + self.transpose,
-                                          velocity=100, time=curr_tick - prev_tick))
+                                          velocity=127, time=curr_tick - prev_tick))
                 prev_tick = curr_tick
                 curr_tick = int((i + self.durations[i]) * ticks_per_beat / self.n_parts_of_beat) + init_tick
                 track.append(mido.Message('note_off', note=self.notenums[i] + self.transpose,
-                                          velocity=100, time=curr_tick - prev_tick))
+                                          velocity=127, time=curr_tick - prev_tick))
                 prev_tick = curr_tick
         return track
 
@@ -156,7 +156,7 @@ def main(cfg: DictConfig) -> None:
     chords = read_chord_file(chord_file_path, n_beats=cfg.data.n_beats, n_parts_of_beat=cfg.data.n_parts_of_beat)
     manyhot_chords = TransformOnehotInference().transform(chords)
 
-    model = Seq2SeqMelodyGenerationModel.load_from_checkpoint("lightning_logs/version_5/checkpoints/epoch=99-step=5400.ckpt", map_location="cpu")
+    model = Seq2SeqMelodyGenerationModel.load_from_checkpoint("lightning_logs/version_1/checkpoints/epoch=99-step=5400.ckpt", map_location="cpu")
     model.eval()
 
     with torch.no_grad():

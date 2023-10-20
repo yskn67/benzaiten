@@ -23,12 +23,24 @@ download_lakh() {
     rm $TAR_PATH
 }
 
+download_maestro() {
+    DATASET_DIR=$1
+    MAESTRO_DIR="$DATASET_DIR/maestro"
+    ZIP_PATH="$MAESTRO_DIR/maestro-v3.0.0-midi.zip"
+    mkdir -p $MAESTRO_DIR
+    wget -O $ZIP_PATH https://storage.googleapis.com/magentadata/datasets/maestro/v3.0.0/maestro-v3.0.0-midi.zip
+    unzip -od $MAESTRO_DIR $ZIP_PATH
+    rm $ZIP_PATH
+}
+
 DATASET_DIR="$(cd $(dirname $(dirname $0)); pwd)/data/input"
 DATASET_NAME=$1
 if [[ "$DATASET_NAME" == "omnibook" ]]; then
     download_omnibook $DATASET_DIR
 elif [[ "$DATASET_NAME" == "lakh" ]]; then
     download_lakh $DATASET_DIR
+elif [[ "$DATASET_NAME" == "maestro" ]]; then
+    download_maestro $DATASET_DIR
 else
     echo "No action."
 fi

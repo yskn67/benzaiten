@@ -1,9 +1,8 @@
 .ipynb_checkpoints
 __pycache__
 /data/
-!/data/input/omnibook/.gitkeep
-!/data/input/lakh/.gitkeep
 !/data/input/.gitkeep
+!/data/preprocess/.gitkeep
 !/data/output/.gitkeep
 lightning_logs
 outputs/

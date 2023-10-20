@@ -1,0 +1,15 @@
+data:
+  n_measures: 4
+  n_beats: 4
+  n_parts_of_beat: 4
+  ticks_per_beat: 480
+model:
+  latent_dim: 32
+  hidden_dim: 1024
+train:
+  batch_size: 64
+  max_epochs: 100
+generate:
+  output_dir: "data/output/musicvae"
+  midi_file: "musicvae.mid"
+  wav_file: "musicvae.wav"
