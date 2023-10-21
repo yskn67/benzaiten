@@ -33,6 +33,16 @@ download_maestro() {
     rm $ZIP_PATH
 }
 
+download_openewld() {
+    DATASET_DIR=$1
+    OPENEWLD_DIR="$DATASET_DIR/openewld"
+    ZIP_PATH="$OPENEWLD_DIR/v0.1.zip"
+    mkdir -p $OPENEWLD_DIR
+    wget -O $ZIP_PATH https://github.com/00sapo/OpenEWLD/archive/refs/tags/v0.1.zip
+    unzip -od $OPENEWLD_DIR $ZIP_PATH
+    rm $ZIP_PATH
+}
+
 DATASET_DIR="$(cd $(dirname $(dirname $0)); pwd)/data/input"
 DATASET_NAME=$1
 if [[ "$DATASET_NAME" == "omnibook" ]]; then
@@ -41,6 +51,8 @@ elif [[ "$DATASET_NAME" == "lakh" ]]; then
     download_lakh $DATASET_DIR
 elif [[ "$DATASET_NAME" == "maestro" ]]; then
     download_maestro $DATASET_DIR
+elif [[ "$DATASET_NAME" == "openewld" ]]; then
+    download_openewld $DATASET_DIR
 else
     echo "No action."
 fi
