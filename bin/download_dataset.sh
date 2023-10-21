@@ -43,6 +43,14 @@ download_openewld() {
     rm $ZIP_PATH
 }
 
+download_infinite_bach() {
+    DATASET_DIR=$1
+    BACH_DIR="$DATASET_DIR/infinite_bach"
+    mkdir -p $BACH_DIR
+    cd $BACH_DIR
+    git clone https://github.com/jamesrobertlloyd/infinite-bach
+}
+
 DATASET_DIR="$(cd $(dirname $(dirname $0)); pwd)/data/input"
 DATASET_NAME=$1
 if [[ "$DATASET_NAME" == "omnibook" ]]; then
@@ -53,6 +61,8 @@ elif [[ "$DATASET_NAME" == "maestro" ]]; then
     download_maestro $DATASET_DIR
 elif [[ "$DATASET_NAME" == "openewld" ]]; then
     download_openewld $DATASET_DIR
+elif [[ "$DATASET_NAME" == "infinite_bach" ]]; then
+    download_infinite_bach $DATASET_DIR
 else
     echo "No action."
 fi
