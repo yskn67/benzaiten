@@ -5,6 +5,7 @@ data:
   n_parts_of_beat: 4
   ticks_per_beat: 480
 model:
+  mode: pretrain
   latent_dim: 128
   encoder_hidden_dim: 1024
   decoder_hidden_dim: 1024

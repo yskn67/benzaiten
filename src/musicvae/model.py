@@ -1,8 +1,15 @@
+from typing import Literal
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import lightning.pytorch as pl
+from loguru import logger
+from torch.optim.lr_scheduler import MultiStepLR
+
+
+MODE = Literal["pretrain", "finetune"]
 
 
 class Encoder(nn.Module):
@@ -65,7 +72,7 @@ class Decoder(nn.Module):
             batch_first=True,
             bidirectional=False
         )
-        self.chord_embedding = nn.Embedding(12, input_dim)
+        self.chord_embedding = nn.Embedding(12, hidden_dim)
         self.linear = nn.Linear(hidden_dim, output_dim)
         self.output_dim = output_dim
         self.hidden_dim = hidden_dim
@@ -98,9 +105,14 @@ class Decoder(nn.Module):
                 latent = latent.unsqueeze(1).repeat(1, self.n_steps_per_measure, 1)  # (batch_size, n_steps, latent_dim_per_measure)
                 # chords tensor (batch_size, n_measure, n_steps, 12)
                 if "chords" in batch:
+                    logger.debug(f"batch_size: {batch_size}, beat_latent_dim: {latent_dim_per_measure}")
+                    logger.debug(f"latents_per_measure size: {latents_per_measure.size()}")
+                    logger.debug(f"latent size: {latent.size()}")
                     nonzero = (batch["chords"][:, i, :, :].reshape(batch_size * self.n_steps_per_measure, 12) == 1).nonzero()
+                    logger.debug(f"nonzero size: {nonzero.size()}")
                     embedding = self.chord_embedding(nonzero[:, 1])
                     expand_index = nonzero[:, 0].repeat(latent_dim_per_measure, 1).transpose(0, 1)
+                    logger.debug(f"exmapd_index size: {expand_index.size()}, embedding size: {embedding.size()}")
                     chord_filter = torch.zeros(batch_size * self.n_steps_per_measure, latent_dim_per_measure, dtype=torch.float, device=device).scatter_reduce(0, expand_index, embedding, reduce="sum")
                     chord_filter = F.tanh(chord_filter.reshape(batch_size, self.n_steps_per_measure, latent_dim_per_measure))
                     latent = latent * chord_filter
@@ -138,8 +150,9 @@ class Decoder(nn.Module):
 
 class MusicVaeModel(pl.LightningModule):
 
-    def __init__(self, encoder_hidden_dim: int=512, decoder_hidden_dim: int=1024, latent_dim: int=32, n_steps_per_measure: int=16):
+    def __init__(self, encoder_hidden_dim: int=512, decoder_hidden_dim: int=1024, latent_dim: int=32, n_steps_per_measure: int=16, mode: MODE="pretrain") -> None:
         super().__init__()
+        self.mode = mode
         self.encoder = Encoder(129, latent_dim, encoder_hidden_dim)
         self.decoder = Decoder(latent_dim, 129, decoder_hidden_dim, n_steps_per_measure=n_steps_per_measure)
         self.criterion = nn.CrossEntropyLoss()
@@ -158,11 +171,36 @@ class MusicVaeModel(pl.LightningModule):
             "loss": loss
         }
 
+    def on_train_epoch_start(self) -> None:
+        if self.mode == "finetune":
+            if self.current_epoch < 10:
+                for param in self.encoder.parameters():
+                    param.requires_grad = False
+                for param in self.decoder.measure_rnn.parameters():
+                    param.requires_grad = False
+                for param in self.decoder.beat_rnn.parameters():
+                    param.requires_grad = False
+                for param in self.decoder.linear.parameters():
+                    param.requires_grad = False
+            else:
+                for param in self.encoder.parameters():
+                    param.requires_grad = True
+                for param in self.decoder.measure_rnn.parameters():
+                    param.requires_grad = True
+                for param in self.decoder.beat_rnn.parameters():
+                    param.requires_grad = True
+                for param in self.decoder.linear.parameters():
+                    param.requires_grad = True
+
     def configure_optimizers(self):
-        return optim.Adam(
-            self.parameters(),
-            lr=1e-3
-        )
+        if self.mode == "pretrain":
+            optimizer = optim.Adam(self.parameters(), lr=1e-2)
+            scheduler = MultiStepLR(optimizer, milestones=[30, 60, 100, 140], gamma=0.1)
+        else:
+            optimizer = optim.Adam(self.parameters(), lr=1e-3)
+            scheduler = MultiStepLR(optimizer, milestones=[10, 20], gamma=0.1)
+
+        return [optimizer], [scheduler]
 
 
 if __name__ == '__main__':

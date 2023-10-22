@@ -1,0 +1,19 @@
+name: sample
+pretrain_name: sample
+model:
+  mode: finetune
+train:
+  pretrain_output_dir: "data/output/musicvae"
+  batch_size: 32
+  max_epochs: 300
+  patience: 10
+generate:
+  input_dir: "data/input/origin"
+  output_dir: "data/output/musicvae_finetune"
+  backing_file: sample1_backing.mid
+  chord_file: sample1_chord.csv
+  submission_midi_file: output_sample1.mid
+  full_midi_file: output_sample1_full.mid
+  wav_file: "musicvae_finetune.wav"
+logger:
+  level: "INFO"

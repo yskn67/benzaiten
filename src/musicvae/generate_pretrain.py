@@ -96,10 +96,11 @@ def main(cfg: DictConfig) -> None:
     model = MusicVaeModel.load_from_checkpoint(
         checkpoint_path,
         map_location="cpu",
+        mode=pretrain_cfg.model.mode,
         encoder_hidden_dim=pretrain_cfg.model.encoder_hidden_dim,
         decoder_hidden_dim=pretrain_cfg.model.decoder_hidden_dim,
         latent_dim=pretrain_cfg.model.latent_dim,
-        n_steps_per_measure=pretrain_cfg.data.n_beats * cfg.data.n_parts_of_beat,
+        n_steps_per_measure=pretrain_cfg.data.n_beats * pretrain_cfg.data.n_parts_of_beat,
     )
     model.eval()
 

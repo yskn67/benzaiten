@@ -16,10 +16,12 @@ __pycache__
 !/data/preprocess/.gitkeep
 !/data/output/.gitkeep
 !/data/output/musicvae/.gitkeep
+!/data/output/musicvae_finetune/.gitkeep
 
 # log/ dir
 /logs/
 !/logs/musicvae/.gitkeep
+!/logs/musicvae_finetune/.gitkeep
 
 # chore
 lightning_logs

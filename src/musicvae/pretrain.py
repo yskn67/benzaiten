@@ -35,6 +35,7 @@ def main(cfg: DictConfig) -> None:
     ds = MusicVaeDataset(files=flist)
     dl = torch.utils.data.DataLoader(dataset=ds, batch_size=cfg.train.batch_size, shuffle=True, num_workers=max(os.cpu_count() - 2, 1))
     model = MusicVaeModel(
+        mode=cfg.model.mode,
         encoder_hidden_dim=cfg.model.encoder_hidden_dim,
         decoder_hidden_dim=cfg.model.decoder_hidden_dim,
         latent_dim=cfg.model.latent_dim,
