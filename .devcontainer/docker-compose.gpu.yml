@@ -1,6 +1,7 @@
 services:
   benzaiten:
     build: .
+    shm_size: '16gb'
     env_file: devcontainer.env
     volumes:
       - ../:/workspace:cached

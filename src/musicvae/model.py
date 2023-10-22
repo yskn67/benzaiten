@@ -174,6 +174,7 @@ class MusicVaeModel(pl.LightningModule):
     def on_train_epoch_start(self) -> None:
         if self.mode == "finetune":
             if self.current_epoch < 10:
+                logger.info(f"freeze pretrained")
                 for param in self.encoder.parameters():
                     param.requires_grad = False
                 for param in self.decoder.measure_rnn.parameters():
@@ -195,10 +196,10 @@ class MusicVaeModel(pl.LightningModule):
     def configure_optimizers(self):
         if self.mode == "pretrain":
             optimizer = optim.Adam(self.parameters(), lr=1e-2)
-            scheduler = MultiStepLR(optimizer, milestones=[30, 60, 100, 140], gamma=0.1)
+            scheduler = MultiStepLR(optimizer, milestones=[40, 80, 120, 160, 200], gamma=0.5)
         else:
             optimizer = optim.Adam(self.parameters(), lr=1e-3)
-            scheduler = MultiStepLR(optimizer, milestones=[10, 20], gamma=0.1)
+            scheduler = MultiStepLR(optimizer, milestones=[40, 80, 120, 160, 200], gamma=0.5)
 
         return [optimizer], [scheduler]
 

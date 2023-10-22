@@ -44,7 +44,7 @@ def main(cfg: DictConfig) -> None:
 
     lightning_logger = CSVLogger("logs/musicvae/")
     checkpoint_callback = ModelCheckpoint(save_top_k=1, monitor="train_loss_epoch")
-    earlystopping_callback = EarlyStopping(monitor="train_loss_epoch", patience=5, verbose=True, mode="min")
+    earlystopping_callback = EarlyStopping(monitor="train_loss_epoch", patience=cfg.train.patience, verbose=True, mode="min")
     trainer = pl.Trainer(
         max_epochs=cfg.train.max_epochs,
         logger=lightning_logger,

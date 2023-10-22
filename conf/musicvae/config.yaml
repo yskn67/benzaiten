@@ -12,6 +12,7 @@ model:
 train:
   batch_size: 32
   max_epochs: 300
+  patience: 20
 generate:
   output_dir: "data/output/musicvae"
   midi_file: "musicvae.mid"
