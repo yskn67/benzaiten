@@ -1,15 +1,27 @@
+# general
 .ipynb_checkpoints
 __pycache__
+
+# config/credentials
+*.env
+
+# music files
+*.wav
+*.mid
+*.midi
+
+# data/ dir
 /data/
 !/data/input/.gitkeep
 !/data/preprocess/.gitkeep
 !/data/output/.gitkeep
 !/data/output/musicvae/.gitkeep
+
+# log/ dir
 /logs/
 !/logs/musicvae/.gitkeep
+
+# chore
 lightning_logs
 outputs/
-*.wav
-*.mid
-*.midi
 nohup.out

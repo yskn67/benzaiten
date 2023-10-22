@@ -1,0 +1,9 @@
+[alias]
+    tags = for-each-ref --sort=taggerdate --format='%(authordate:short) %(refname:short) %(subject)' refs/tags
+    st = status
+    co = checkout
+    cm = commit
+    cmm = commit -m
+    br = branch
+    lo = log --oneline
+    lg = log --graph --pretty=format:'%Cred%h%Creset -%C(yellow)%d%Creset %s %Cgreen(%cr) %C(bold blue)<%an>%Creset' --abbrev-commit --date=relative
