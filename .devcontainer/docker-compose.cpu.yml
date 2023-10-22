@@ -1,6 +1,7 @@
 services:
   benzaiten:
     build: .
+    env_file: devcontainer.env
     volumes:
       - ../:/workspace:cached
     ports:
