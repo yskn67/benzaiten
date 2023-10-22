@@ -106,7 +106,7 @@ def main(cfg: DictConfig) -> None:
 
     with torch.no_grad():
         batch = {
-            "latent": torch.randn(1, cfg.model.latent_dim).unsqueeze(1).repeat(1, 8, 1),
+            "latent": torch.randn(1, pretrain_cfg.model.latent_dim).unsqueeze(1).repeat(1, 8, 1),
         }
         out = model.decoder(batch)
 

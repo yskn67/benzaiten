@@ -4,6 +4,7 @@ data:
   n_beats: 4
   n_parts_of_beat: 4
   ticks_per_beat: 480
+  intro_blank_measures: 3
 model:
   mode: pretrain
   latent_dim: 128
