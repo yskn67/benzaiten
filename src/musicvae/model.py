@@ -15,15 +15,29 @@ class Encoder(nn.Module):
             batch_first=True,
             bidirectional=True
         )
-        self.linear_mean = nn.Linear(hidden_dim * 2, output_dim)
-        self.linear_lnvar = nn.Linear(hidden_dim * 2, output_dim)
+        # FIXME: とりあえずカーネルサイズやフィルターの数は決め打ち
+        self.local_filter = nn.Conv1d(
+            hidden_dim * 2,  #bidirectionalなので
+            3,  # フィルター数
+            kernel_size=9,
+            padding=4,
+            bias=False
+        )
+        self.linear_mean = nn.Linear(hidden_dim * 4, output_dim)
+        self.linear_lnvar = nn.Linear(hidden_dim * 4, output_dim)
 
     def forward(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
-        _, (h, c) = self.rnn(batch["notes"])
-        n_layer, batch_size, hidden_dim = h.size()
+        out, (h, c) = self.rnn(batch["notes"])
+
+        local_weights = self.local_filter(out.transpose(1, 2))
+        local_weights = F.softmax(local_weights, dim=1).mean(dim=1)
+        local_features = (out * local_weights.unsqueeze(dim=2)).sum(dim=1)
+
         # FIXME: RNNのlayer数が1前提
-        z = h.transpose(0, 1).reshape((batch_size, n_layer * hidden_dim))
-        z = F.tanh(z)
+        n_layer, batch_size, hidden_dim = h.size()
+        global_features = h.transpose(0, 1).reshape((batch_size, n_layer * hidden_dim))
+
+        z = F.tanh(torch.cat([global_features, local_features], dim=1))
         mean = self.linear_mean(z)
         lnvar = self.linear_lnvar(z)
         std = torch.exp(0.5 * lnvar)
@@ -104,10 +118,10 @@ class Decoder(nn.Module):
 
 class MusicVaeModel(pl.LightningModule):
 
-    def __init__(self, hidden_dim: int=1024, latent_dim: int=32, n_steps_per_measure: int=16):
+    def __init__(self, encoder_hidden_dim: int=512, decoder_hidden_dim: int=1024, latent_dim: int=32, n_steps_per_measure: int=16):
         super().__init__()
-        self.encoder = Encoder(129, latent_dim, hidden_dim)
-        self.decoder = Decoder(latent_dim, 129, hidden_dim, n_steps_per_measure=n_steps_per_measure)
+        self.encoder = Encoder(129, latent_dim, encoder_hidden_dim)
+        self.decoder = Decoder(latent_dim, 129, decoder_hidden_dim, n_steps_per_measure=n_steps_per_measure)
         self.criterion = nn.CrossEntropyLoss()
 
     def forward(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:

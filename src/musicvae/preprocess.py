@@ -1,6 +1,8 @@
 import functools
+import gc
 import json
 import os
+import sys
 from glob import glob
 from multiprocessing import Pool
 from typing import Callable
@@ -26,8 +28,7 @@ def preprocess(
     target_steps_per_bar: int = 16,
     target_steps_per_quarter: int = 4,
 ) -> None:
-    midi_dirname, midi_basename = os.path.split(midi_path)
-    _, midi_parentname = os.path.split(midi_dirname)
+    _, midi_basename = os.path.split(midi_path)
     midi_basename_root, _ = os.path.splitext(midi_basename)
     try:
         melody = note_seq.midi_file_to_melody(midi_path)
@@ -66,11 +67,13 @@ def preprocess(
                 continue
 
             # 規定の小節数ごとに保存
-            output_path = os.path.join(output_dir, midi_parentname, midi_basename_root + f"_{i}" + ".json")
+            output_path = os.path.join(output_dir, midi_basename_root + f"_{i}" + ".json")
             with open(output_path, "wt") as f:
                 json.dump(pitchs_per_n_measure, f)
     except Exception as e:
         logger.debug(f"{e} : {midi_path}")
+
+    gc.collect()
 
 
 def maestro(preprocess_fn: Callable) -> None:
@@ -85,7 +88,9 @@ def maestro(preprocess_fn: Callable) -> None:
     os.makedirs("data/preprocess/maestro/2017", exist_ok=True)
     os.makedirs("data/preprocess/maestro/2018", exist_ok=True)
 
-    args = [(midi_path, "data/preprocess/maestro") for midi_path in glob("data/input/maestro/maestro-v3.0.0/*/*.midi")]
+    args = []
+    for midi_path in glob("data/input/maestro/maestro-v3.0.0/*/*.midi"):
+        args.append((midi_path, os.path.join("data/preprocess/maestro", midi_path.split("/")[-2])))
     with Pool(processes=None) as pool:
         pool.starmap(preprocess_fn, args)
 
@@ -95,13 +100,61 @@ def lakh(preprocess_fn: Callable) -> None:
         parentname = str(hex(i))[2]
         os.makedirs(f"data/preprocess/lakh/{parentname}", exist_ok=True)
 
-    args = [(midi_path, "data/preprocess/lakh") for midi_path in glob("data/input/lakh/lmd_full/*/*.mid")]
-    with Pool(processes=None) as pool:
+    # 既に処理済みのものはskip
+    already_processed = {os.path.split(os.path.splitext(fpath)[0])[-1].split("_")[0] for fpath in glob("data/preprocess/lakh/*/*.json")}
+
+    args = []
+    for midi_path in glob("data/input/lakh/lmd_full/*/*.mid"):
+        basename = os.path.split(os.path.splitext(midi_path)[0])[-1]
+        if basename in already_processed:
+            continue
+
+        args.append((midi_path, os.path.join("data/preprocess/lakh", midi_path.split("/")[-2])))
+
+    logger.info(f"midi file count: {len(args)}")
+    with Pool(processes=max(os.cpu_count() - 1, 1)) as pool:
+        pool.starmap(preprocess_fn, args)
+
+
+def lakh_matched(preprocess_fn: Callable) -> None:
+    for i in range(16):
+        parentname = str(hex(i))[2]
+        os.makedirs(f"data/preprocess/lakh_matched/{parentname}", exist_ok=True)
+
+    # 既に処理済みのものはskip
+    already_processed = {os.path.split(os.path.splitext(fpath)[0])[-1].split("_")[0] for fpath in glob("data/preprocess/lakh_matched/*/*.json")}
+
+    # lakh_matchedは重複するファイルが多く存在するので除外する
+    args = {}
+    for midi_path in glob("data/input/lakh_matched/lmd_matched/**/*.mid", recursive=True):
+        basename = os.path.split(os.path.splitext(midi_path)[0])[-1]
+        if basename in already_processed:
+            continue
+
+        parentname = basename[0]
+        args[basename] = (midi_path, os.path.join("data/preprocess/lakh_matched", parentname))
+    args = list(args.values())
+
+    logger.info(f"midi file count: {len(args)}")
+    with Pool(processes=max(os.cpu_count() - 1, 1)) as pool:
+        pool.starmap(preprocess_fn, args)
+
+
+def infinite_bach(preprocess_fn: Callable) -> None:
+    os.makedirs(f"data/preprocess/infinite_bach", exist_ok=True)
+    args = []
+    for midi_path in glob("data/input/infinite_bach/infinite-bach/data/chorales/midi/*.mid"):
+        args.append((midi_path, "data/preprocess/infinite_bach"))
+
+    logger.info(f"midi file count: {len(args)}")
+    with Pool(processes=os.cpu_count()) as pool:
         pool.starmap(preprocess_fn, args)
 
 
 @hydra.main(version_base=None, config_path="../../conf/musicvae", config_name="config")
 def main(cfg: DictConfig) -> None:
+    logger.remove()
+    logger.add(sys.stderr, level=cfg.logger.level)
     note_seq.melodies_lib.STANDARD_PPQ = cfg.data.ticks_per_beat
     preprocess_fn = functools.partial(
         preprocess,
@@ -109,8 +162,13 @@ def main(cfg: DictConfig) -> None:
         target_steps_per_bar=cfg.data.n_beats * cfg.data.n_parts_of_beat,
         target_steps_per_quarter=cfg.data.n_parts_of_beat,
     )
+    # 処理時間短い順
+    infinite_bach(preprocess_fn)
     maestro(preprocess_fn)
+    lakh_matched(preprocess_fn)
+    # NOTE: ファイル数が多い & メモリリークが発生するのでskip
     # lakh(preprocess_fn)
+    logger.info("Finished!")
 
 
 if __name__ == "__main__":

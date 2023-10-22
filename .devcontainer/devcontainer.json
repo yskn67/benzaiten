@@ -9,7 +9,7 @@
         "ms-python.python",
         "ms-python.black-formatter",
         "njpwerner.autodocstring",
-        "KevinRose.vsc-python-indent"
+        "ms-azuretools.vscode-docker"
       ],
       "settings": {
         "editor.renderWhitespace": "all",
@@ -34,5 +34,6 @@
         "black-formatter.args": ["--line-length=120"]
       }
     }
-  }
+  },
+  "postCreateCommand": "bash .devcontainer/postCreate.sh"
 }
