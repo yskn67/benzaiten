@@ -13,6 +13,9 @@ from loguru import logger
 from omegaconf import DictConfig
 
 
+PREPROCESS_NAME = "preprocess_notranspose"
+
+
 def each_slice(lst, n_slice):
     s = 0
     n = len(lst)
@@ -37,7 +40,8 @@ def preprocess(
             logger.debug(f"Unexpected steps: {midi_path}")
             return
 
-        melody.squash(0, 128, transpose_to_key=0)
+        # NOTE(2023-10-23): pretrain modelが生成するメロディに多様性がないので移調しないパターンも試す
+        # melody.squash(0, 128, transpose_to_key=0)
         quantized_seq = note_seq.quantize_note_sequence(melody.to_sequence(), target_steps_per_quarter)
         # 4/4拍子以外は処理しない
         ts = quantized_seq.time_signatures[0]
@@ -77,20 +81,20 @@ def preprocess(
 
 
 def maestro(preprocess_fn: Callable) -> None:
-    os.makedirs("data/preprocess/maestro/2004", exist_ok=True)
-    os.makedirs("data/preprocess/maestro/2006", exist_ok=True)
-    os.makedirs("data/preprocess/maestro/2008", exist_ok=True)
-    os.makedirs("data/preprocess/maestro/2009", exist_ok=True)
-    os.makedirs("data/preprocess/maestro/2011", exist_ok=True)
-    os.makedirs("data/preprocess/maestro/2013", exist_ok=True)
-    os.makedirs("data/preprocess/maestro/2014", exist_ok=True)
-    os.makedirs("data/preprocess/maestro/2015", exist_ok=True)
-    os.makedirs("data/preprocess/maestro/2017", exist_ok=True)
-    os.makedirs("data/preprocess/maestro/2018", exist_ok=True)
+    os.makedirs(f"data/{PREPROCESS_NAME}/maestro/2004", exist_ok=True)
+    os.makedirs(f"data/{PREPROCESS_NAME}/maestro/2006", exist_ok=True)
+    os.makedirs(f"data/{PREPROCESS_NAME}/maestro/2008", exist_ok=True)
+    os.makedirs(f"data/{PREPROCESS_NAME}/maestro/2009", exist_ok=True)
+    os.makedirs(f"data/{PREPROCESS_NAME}/maestro/2011", exist_ok=True)
+    os.makedirs(f"data/{PREPROCESS_NAME}/maestro/2013", exist_ok=True)
+    os.makedirs(f"data/{PREPROCESS_NAME}/maestro/2014", exist_ok=True)
+    os.makedirs(f"data/{PREPROCESS_NAME}/maestro/2015", exist_ok=True)
+    os.makedirs(f"data/{PREPROCESS_NAME}/maestro/2017", exist_ok=True)
+    os.makedirs(f"data/{PREPROCESS_NAME}/maestro/2018", exist_ok=True)
 
     args = []
     for midi_path in glob("data/input/maestro/maestro-v3.0.0/*/*.midi"):
-        args.append((midi_path, os.path.join("data/preprocess/maestro", midi_path.split("/")[-2])))
+        args.append((midi_path, os.path.join(f"data/{PREPROCESS_NAME}/maestro", midi_path.split("/")[-2])))
     with Pool(processes=None) as pool:
         pool.starmap(preprocess_fn, args)
 
@@ -98,10 +102,10 @@ def maestro(preprocess_fn: Callable) -> None:
 def lakh(preprocess_fn: Callable) -> None:
     for i in range(16):
         parentname = str(hex(i))[2]
-        os.makedirs(f"data/preprocess/lakh/{parentname}", exist_ok=True)
+        os.makedirs(f"data/{PREPROCESS_NAME}/lakh/{parentname}", exist_ok=True)
 
     # 既に処理済みのものはskip
-    already_processed = {os.path.split(os.path.splitext(fpath)[0])[-1].split("_")[0] for fpath in glob("data/preprocess/lakh/*/*.json")}
+    already_processed = {os.path.split(os.path.splitext(fpath)[0])[-1].split("_")[0] for fpath in glob(f"data/{PREPROCESS_NAME}/lakh/*/*.json")}
 
     args = []
     for midi_path in glob("data/input/lakh/lmd_full/*/*.mid"):
@@ -109,7 +113,7 @@ def lakh(preprocess_fn: Callable) -> None:
         if basename in already_processed:
             continue
 
-        args.append((midi_path, os.path.join("data/preprocess/lakh", midi_path.split("/")[-2])))
+        args.append((midi_path, os.path.join(f"data/{PREPROCESS_NAME}/lakh", midi_path.split("/")[-2])))
 
     logger.info(f"midi file count: {len(args)}")
     with Pool(processes=max(os.cpu_count() - 1, 1)) as pool:
@@ -119,10 +123,10 @@ def lakh(preprocess_fn: Callable) -> None:
 def lakh_matched(preprocess_fn: Callable) -> None:
     for i in range(16):
         parentname = str(hex(i))[2]
-        os.makedirs(f"data/preprocess/lakh_matched/{parentname}", exist_ok=True)
+        os.makedirs(f"data/{PREPROCESS_NAME}/lakh_matched/{parentname}", exist_ok=True)
 
     # 既に処理済みのものはskip
-    already_processed = {os.path.split(os.path.splitext(fpath)[0])[-1].split("_")[0] for fpath in glob("data/preprocess/lakh_matched/*/*.json")}
+    already_processed = {os.path.split(os.path.splitext(fpath)[0])[-1].split("_")[0] for fpath in glob(f"data/{PREPROCESS_NAME}/lakh_matched/*/*.json")}
 
     # lakh_matchedは重複するファイルが多く存在するので除外する
     args = {}
@@ -132,7 +136,7 @@ def lakh_matched(preprocess_fn: Callable) -> None:
             continue
 
         parentname = basename[0]
-        args[basename] = (midi_path, os.path.join("data/preprocess/lakh_matched", parentname))
+        args[basename] = (midi_path, os.path.join(f"data/{PREPROCESS_NAME}/lakh_matched", parentname))
     args = list(args.values())
 
     logger.info(f"midi file count: {len(args)}")
@@ -141,10 +145,10 @@ def lakh_matched(preprocess_fn: Callable) -> None:
 
 
 def infinite_bach(preprocess_fn: Callable) -> None:
-    os.makedirs(f"data/preprocess/infinite_bach", exist_ok=True)
+    os.makedirs(f"data/{PREPROCESS_NAME}/infinite_bach", exist_ok=True)
     args = []
     for midi_path in glob("data/input/infinite_bach/infinite-bach/data/chorales/midi/*.mid"):
-        args.append((midi_path, "data/preprocess/infinite_bach"))
+        args.append((midi_path, f"data/{PREPROCESS_NAME}/infinite_bach"))
 
     logger.info(f"midi file count: {len(args)}")
     with Pool(processes=os.cpu_count()) as pool:

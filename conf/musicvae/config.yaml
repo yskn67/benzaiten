@@ -11,6 +11,7 @@ model:
   encoder_hidden_dim: 1024
   decoder_hidden_dim: 1024
 train:
+  input_dir: "data/preprocess"
   batch_size: 32
   max_epochs: 300
   patience: 20
