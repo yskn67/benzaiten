@@ -65,6 +65,7 @@ class Decoder(nn.Module):
             batch_first=True,
             bidirectional=False
         )
+        self.chord_embedding = nn.Embedding(12, input_dim)
         self.linear = nn.Linear(hidden_dim, output_dim)
         self.output_dim = output_dim
         self.hidden_dim = hidden_dim
@@ -86,14 +87,24 @@ class Decoder(nn.Module):
         device = batch["latent"].device
         latents_per_measure, _ = self.measure_rnn(batch["latent"])
         latents_per_measure = F.tanh(latents_per_measure)
+        latent_dim_per_measure = latents_per_measure.size(dim=2)
 
         previous_beat_h = torch.zeros((self.n_layers, batch_size, self.hidden_dim), dtype=torch.float, device=device)
         previous_beat_c = torch.zeros((self.n_layers, batch_size, self.hidden_dim), dtype=torch.float, device=device)
         outputs = []
 
-        if "inputs" in batch:
-            for inputs_per_measure, latent in zip(batch["inputs"].transpose(0, 1), latents_per_measure.transpose(0, 1)):
-                latent = latent.unsqueeze(1).repeat(1, self.n_steps_per_measure, 1)
+        if "inputs" in batch:  # teacher forcing
+            for i, (inputs_per_measure, latent) in enumerate(zip(batch["inputs"].transpose(0, 1), latents_per_measure.transpose(0, 1))):
+                latent = latent.unsqueeze(1).repeat(1, self.n_steps_per_measure, 1)  # (batch_size, n_steps, latent_dim_per_measure)
+                # chords tensor (batch_size, n_measure, n_steps, 12)
+                if "chords" in batch:
+                    nonzero = (batch["chords"][:, i, :, :].reshape(batch_size * self.n_steps_per_measure, 12) == 1).nonzero()
+                    embedding = self.chord_embedding(nonzero[:, 1])
+                    expand_index = nonzero[:, 0].repeat(latent_dim_per_measure, 1).transpose(0, 1)
+                    chord_filter = torch.zeros(batch_size * self.n_steps_per_measure, latent_dim_per_measure, dtype=torch.float, device=device).scatter_reduce(0, expand_index, embedding, reduce="sum")
+                    chord_filter = F.tanh(chord_filter.reshape(batch_size, self.n_steps_per_measure, latent_dim_per_measure))
+                    latent = latent * chord_filter
+
                 x = torch.cat([latent, inputs_per_measure], dim=2)
                 out, (previous_beat_h, previous_beat_c) = self.beat_rnn(x, (previous_beat_h, previous_beat_c))
                 out = self.linear(F.tanh(out))
@@ -101,15 +112,24 @@ class Decoder(nn.Module):
             return torch.cat(outputs, dim=1)
         else:
             # 潜在変数の長さで生成する小節数を判断する
-            for latent in latents_per_measure.transpose(0, 1):
-                latent = latent.unsqueeze(1).repeat(1, self.n_steps_per_measure, 1)
+            for i, latent in enumerate(latents_per_measure.transpose(0, 1)):
+                latent = latent.unsqueeze(1).repeat(1, self.n_steps_per_measure, 1)  # (batch_size, n_steps, latent_dim_per_measure)
+                # chords tensor (batch_size, n_measure, n_steps, 12)
+                if "chords" in batch:
+                    nonzero = (batch["chords"][:, i, :, :].reshape(batch_size * self.n_steps_per_measure, 12) == 1).nonzero()
+                    embedding = self.chord_embedding(nonzero[:, 1])
+                    expand_index = nonzero[:, 0].repeat(latent_dim_per_measure, 1).transpose(0, 1)
+                    chord_filter = torch.zeros(batch_size * self.n_steps_per_measure, latent_dim_per_measure, dtype=torch.float, device=device).scatter_reduce(0, expand_index, embedding, reduce="sum")
+                    chord_filter = F.tanh(chord_filter.reshape(batch_size, self.n_steps_per_measure, latent_dim_per_measure))
+                    latent = latent * chord_filter
+
                 predicted_inputs = self._predicted_inputs(batch_size, outputs).to(device)
 
-                for i in range(self.n_steps_per_measure):
+                for j in range(self.n_steps_per_measure):
                     x = torch.cat([latent, predicted_inputs], dim=2)
                     out, (previous_beat_h, previous_beat_c) = self.beat_rnn(x, (previous_beat_h, previous_beat_c))
                     out = self.linear(F.tanh(out))
-                    if i < self.n_steps_per_measure - 1:
+                    if j < self.n_steps_per_measure - 1:
                         predicted_inputs = self._predicted_inputs(batch_size, outputs, current_output=out, predict_index=i).to(device)
 
                 outputs.append(out)
@@ -154,9 +174,10 @@ if __name__ == '__main__':
     encoder = Encoder(melody_dim, latent_dim, hidden_dim)
     decoder = Decoder(latent_dim, melody_dim, hidden_dim, n_steps_per_measure=n_steps_per_measure)
     inputs = F.one_hot(torch.randint(melody_dim, (n_measures, n_steps_per_measure)), num_classes=melody_dim).unsqueeze(0).float()
-    print(inputs.size())
+    notes = F.one_hot(torch.randint(melody_dim, (n_measures * n_steps_per_measure,)), num_classes=melody_dim).unsqueeze(0).float()
+    chords = F.one_hot(torch.randint(12, (n_measures, n_steps_per_measure)), num_classes=12).unsqueeze(0).float()
 
-    latent = encoder({"inputs": inputs})
+    latent = encoder({"notes": notes})
     print(latent.size())
 
     rand_latent = torch.randn(1, latent_dim)
@@ -172,6 +193,19 @@ if __name__ == '__main__':
         "latent": rand_latent.unsqueeze(1).repeat(1, n_measures, 1)
     })
     print(rand_out.size())
+
+    out_with_chord = decoder({
+        "inputs": inputs,
+        "latent": latent.unsqueeze(1).repeat(1, n_measures, 1),
+        "chords": chords,
+    })
+    print(out_with_chord.size())
+
+    rand_out_with_chord = decoder({
+        "latent": rand_latent.unsqueeze(1).repeat(1, n_measures, 1),
+        "chords": chords,
+    })
+    print(rand_out_with_chord.size())
 
     decoder = Decoder(3, 5, 3, n_steps_per_measure=4)
     print(decoder._predicted_inputs(2, []))

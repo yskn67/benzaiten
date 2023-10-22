@@ -5,7 +5,7 @@ import torch
 import numpy as np
 import mido
 import midi2audio
-from omegaconf import DictConfig
+from omegaconf import DictConfig, OmegaConf
 
 from model import MusicVaeModel
 
@@ -90,13 +90,16 @@ def main(cfg: DictConfig) -> None:
     midi_file_path = os.path.join(cfg.generate.output_dir, cfg.generate.midi_file)
     wav_file_path = os.path.join(cfg.generate.output_dir, cfg.generate.wav_file)
 
+    artifact_path = os.path.join(cfg.generate.output_dir, cfg.name)
+    checkpoint_path = os.path.join(artifact_path, "best_model.ckpt")
+    pretrain_cfg = OmegaConf.load(os.path.join(artifact_path, "config.yaml"))
     model = MusicVaeModel.load_from_checkpoint(
-        "lightning_logs/version_8/checkpoints/epoch=99-step=40000.ckpt",
+        checkpoint_path,
         map_location="cpu",
-        encoder_hidden_dim=cfg.model.encoder_hidden_dim,
-        decoder_hidden_dim=cfg.model.decoder_hidden_dim,
-        latent_dim=cfg.model.latent_dim,
-        n_steps_per_measure=cfg.data.n_beats * cfg.data.n_parts_of_beat,
+        encoder_hidden_dim=pretrain_cfg.model.encoder_hidden_dim,
+        decoder_hidden_dim=pretrain_cfg.model.decoder_hidden_dim,
+        latent_dim=pretrain_cfg.model.latent_dim,
+        n_steps_per_measure=pretrain_cfg.data.n_beats * cfg.data.n_parts_of_beat,
     )
     model.eval()
 
