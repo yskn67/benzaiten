@@ -1,10 +1,12 @@
 import os
+import sys
 
 import hydra
 import torch
 import numpy as np
 import mido
 import midi2audio
+from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 
 from model import MusicVaeModel
@@ -86,6 +88,8 @@ class MidiGenerator:
 
 @hydra.main(version_base=None, config_path="../../conf/musicvae", config_name="config")
 def main(cfg: DictConfig) -> None:
+    logger.remove()
+    logger.add(sys.stderr, level=cfg.logger.level)
     os.makedirs(cfg.generate.output_dir, exist_ok=True)
     midi_file_path = os.path.join(cfg.generate.output_dir, cfg.generate.midi_file)
     wav_file_path = os.path.join(cfg.generate.output_dir, cfg.generate.wav_file)
@@ -109,6 +113,7 @@ def main(cfg: DictConfig) -> None:
             "latent": torch.randn(1, pretrain_cfg.model.latent_dim).unsqueeze(1).repeat(1, 8, 1),
         }
         out = model.decoder(batch)
+        logger.debug(f"model output size: {out.size()}")
 
     pianoroll = out.squeeze(0).numpy()
     notenums = calc_notenums_from_pianoroll(pianoroll, min_note_number=0)

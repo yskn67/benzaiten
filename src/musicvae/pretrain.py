@@ -23,11 +23,11 @@ def main(cfg: DictConfig) -> None:
     artifact_path = os.path.join(cfg.generate.output_dir, cfg.name)
     os.makedirs(artifact_path, exist_ok=True)
 
-    lakh_matched = list(glob.glob("data/preprocess/lakh_matched/*/*.json"))
+    lakh_matched = list(glob.glob(os.path.join(cfg.train.input_dir, "lakh_matched/*/*.json")))
     logger.info(f"lahk_matched: {len(lakh_matched)}")
-    maestro = list(glob.glob("data/preprocess/maestro/*/*.json"))
+    maestro = list(glob.glob(os.path.join(cfg.train.input_dir, "maestro/*/*.json")))
     logger.info(f"maestro: {len(maestro)}")
-    infinite_bach = list(glob.glob("data/preprocess/infinite_bach/*.json"))
+    infinite_bach = list(glob.glob(os.path.join(cfg.train.input_dir, "infinite_bach/*.json")))
     logger.info(f"infinite_bach: {len(infinite_bach)}")
     flist = maestro + lakh_matched + infinite_bach
     logger.info(f"total: {len(flist)}")
