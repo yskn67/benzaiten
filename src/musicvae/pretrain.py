@@ -35,6 +35,7 @@ def main(cfg: DictConfig) -> None:
     ds = MusicVaeDataset(files=flist)
     dl = torch.utils.data.DataLoader(dataset=ds, batch_size=cfg.train.batch_size, shuffle=True, num_workers=max(os.cpu_count() - 2, 1))
     model = MusicVaeModel(
+        mode=cfg.model.mode,
         encoder_hidden_dim=cfg.model.encoder_hidden_dim,
         decoder_hidden_dim=cfg.model.decoder_hidden_dim,
         latent_dim=cfg.model.latent_dim,
@@ -42,8 +43,8 @@ def main(cfg: DictConfig) -> None:
     )
 
     lightning_logger = CSVLogger("logs/musicvae/")
-    checkpoint_callback = ModelCheckpoint(dirpath="logs/musicvae/", save_top_k=1, monitor="train_loss_epoch")
-    earlystopping_callback = EarlyStopping(monitor="train_loss_epoch", patience=5, verbose=True, mode="min")
+    checkpoint_callback = ModelCheckpoint(save_top_k=1, monitor="train_loss_epoch")
+    earlystopping_callback = EarlyStopping(monitor="train_loss_epoch", patience=cfg.train.patience, verbose=True, mode="min")
     trainer = pl.Trainer(
         max_epochs=cfg.train.max_epochs,
         logger=lightning_logger,

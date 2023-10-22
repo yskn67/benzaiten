@@ -4,13 +4,16 @@ data:
   n_beats: 4
   n_parts_of_beat: 4
   ticks_per_beat: 480
+  intro_blank_measures: 3
 model:
+  mode: pretrain
   latent_dim: 128
   encoder_hidden_dim: 1024
   decoder_hidden_dim: 1024
 train:
   batch_size: 32
   max_epochs: 300
+  patience: 20
 generate:
   output_dir: "data/output/musicvae"
   midi_file: "musicvae.mid"
