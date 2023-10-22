@@ -93,7 +93,8 @@ def main(cfg: DictConfig) -> None:
     model = MusicVaeModel.load_from_checkpoint(
         "lightning_logs/version_8/checkpoints/epoch=99-step=40000.ckpt",
         map_location="cpu",
-        hidden_dim=cfg.model.hidden_dim,
+        encoder_hidden_dim=cfg.model.encoder_hidden_dim,
+        decoder_hidden_dim=cfg.model.decoder_hidden_dim,
         latent_dim=cfg.model.latent_dim,
         n_steps_per_measure=cfg.data.n_beats * cfg.data.n_parts_of_beat,
     )

@@ -23,6 +23,16 @@ download_lakh() {
     rm $TAR_PATH
 }
 
+download_lakh_matched() {
+    DATASET_DIR=$1
+    LAKH_DIR="$DATASET_DIR/lakh_matched"
+    TAR_PATH="$LAKH_DIR/lmd_matched.tar.gz"
+    mkdir -p $LAKH_DIR
+    wget -O $TAR_PATH http://hog.ee.columbia.edu/craffel/lmd/lmd_matched.tar.gz
+    tar xvzf $TAR_PATH -C $LAKH_DIR
+    rm $TAR_PATH
+}
+
 download_maestro() {
     DATASET_DIR=$1
     MAESTRO_DIR="$DATASET_DIR/maestro"
@@ -57,6 +67,8 @@ if [[ "$DATASET_NAME" == "omnibook" ]]; then
     download_omnibook $DATASET_DIR
 elif [[ "$DATASET_NAME" == "lakh" ]]; then
     download_lakh $DATASET_DIR
+elif [[ "$DATASET_NAME" == "lakh_matched" ]]; then
+    download_lakh_matched $DATASET_DIR
 elif [[ "$DATASET_NAME" == "maestro" ]]; then
     download_maestro $DATASET_DIR
 elif [[ "$DATASET_NAME" == "openewld" ]]; then
