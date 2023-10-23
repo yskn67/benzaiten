@@ -155,6 +155,17 @@ def infinite_bach(preprocess_fn: Callable) -> None:
         pool.starmap(preprocess_fn, args)
 
 
+def weimar_midi(preprocess_fn: Callable) -> None:
+    os.makedirs(f"data/{PREPROCESS_NAME}/weimar_midi", exist_ok=True)
+    args = []
+    for midi_path in glob("data/input/weimar_midi/*.mid"):
+        args.append((midi_path, f"data/{PREPROCESS_NAME}/weimar_midi"))
+
+    logger.info(f"midi file count: {len(args)}")
+    with Pool(processes=os.cpu_count()) as pool:
+        pool.starmap(preprocess_fn, args)
+
+
 @hydra.main(version_base=None, config_path="../../conf/musicvae", config_name="config")
 def main(cfg: DictConfig) -> None:
     logger.remove()
@@ -167,6 +178,7 @@ def main(cfg: DictConfig) -> None:
         target_steps_per_quarter=cfg.data.n_parts_of_beat,
     )
     # 処理時間短い順
+    weimar_midi(preprocess_fn)
     infinite_bach(preprocess_fn)
     maestro(preprocess_fn)
     lakh_matched(preprocess_fn)

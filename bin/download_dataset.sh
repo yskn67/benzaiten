@@ -61,6 +61,17 @@ download_infinite_bach() {
     git clone https://github.com/jamesrobertlloyd/infinite-bach
 }
 
+download_weimar_midi() {
+    DATASET_DIR=$1
+    WEIMAR_DIR="$DATASET_DIR/weimar_midi"
+    ZIP_PATH="$WEIMAR_DIR/RELEASE2.0_mid_unquant.zip"
+    mkdir -p $WEIMAR_DIR
+    wget -O $ZIP_PATH https://jazzomat.hfm-weimar.de/download/downloads/RELEASE2.0_mid_unquant.zip
+    unzip -od $WEIMAR_DIR $ZIP_PATH
+    rm $ZIP_PATH
+}
+
+
 DATASET_DIR="$(cd $(dirname $(dirname $0)); pwd)/data/input"
 DATASET_NAME=$1
 if [[ "$DATASET_NAME" == "omnibook" ]]; then
@@ -75,6 +86,8 @@ elif [[ "$DATASET_NAME" == "openewld" ]]; then
     download_openewld $DATASET_DIR
 elif [[ "$DATASET_NAME" == "infinite_bach" ]]; then
     download_infinite_bach $DATASET_DIR
+elif [[ "$DATASET_NAME" == "weimar_midi" ]]; then
+    download_weimar_midi $DATASET_DIR
 else
     echo "No action."
 fi
