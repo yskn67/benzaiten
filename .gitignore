@@ -14,14 +14,21 @@ __pycache__
 /data/
 !/data/input/.gitkeep
 !/data/preprocess/.gitkeep
+!/data/preprocess_notranspose/.gitkeep
+!/data/preprocess_fixer/.gitkeep
+!/data/preprocess_fixer_notranspose/.gitkeep
 !/data/output/.gitkeep
 !/data/output/musicvae/.gitkeep
 !/data/output/musicvae_finetune/.gitkeep
+!/data/output/melodyfixer/.gitkeep
+!/data/output/melodyfixer_finetune/.gitkeep
 
 # log/ dir
 /logs/
 !/logs/musicvae/.gitkeep
 !/logs/musicvae_finetune/.gitkeep
+!/logs/melodyfixer/.gitkeep
+!/logs/melodyfixer_finetune/.gitkeep
 
 # chore
 lightning_logs
