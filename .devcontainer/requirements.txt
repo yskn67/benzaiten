@@ -9,3 +9,4 @@ midi2audio==0.1.1
 music21==9.1.0
 note-seq==0.0.5
 numpy==1.26.1
+wandb==0.15.12

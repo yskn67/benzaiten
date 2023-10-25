@@ -14,6 +14,9 @@ from omegaconf import DictConfig, OmegaConf
 from model import MusicVaeModel
 
 
+MELODY_CH = 0
+
+
 def read_chord_file(file: str, n_beats: int = 4, n_parts_of_beat: int = 4) -> list[list[music21.harmony.ChordSymbol]]:
     csv_data = {}  # 小節ごとに
     with open(file) as f:
@@ -133,16 +136,19 @@ class MidiGenerator:
             ticks_per_beat = self.ticks_per_beat
 
         track = mido.MidiTrack()
+        # Logic Proにインポートしたときに空白小節がトリミングされないように、
+        # ダミーのチャンネルメッセージとして、オール・ノート・オフを挿入
+        track.append(mido.Message('control_change', channel=MELODY_CH, control=123, value=0))
         init_tick = self.intro_blank_measures * self.n_beats * ticks_per_beat
         prev_tick = 0
         for i in range(len(self.notenums)):
             if self.notenums[i] > 0:
                 curr_tick = int(i * ticks_per_beat / self.n_parts_of_beat) + init_tick
-                track.append(mido.Message('note_on', note=self.notenums[i] + self.transpose,
+                track.append(mido.Message('note_on', channel=MELODY_CH, note=self.notenums[i] + self.transpose,
                                           velocity=127, time=curr_tick - prev_tick))
                 prev_tick = curr_tick
                 curr_tick = int((i + self.durations[i]) * ticks_per_beat / self.n_parts_of_beat) + init_tick
-                track.append(mido.Message('note_off', note=self.notenums[i] + self.transpose,
+                track.append(mido.Message('note_off', channel=MELODY_CH, note=self.notenums[i] + self.transpose,
                                           velocity=127, time=curr_tick - prev_tick))
                 prev_tick = curr_tick
         return track

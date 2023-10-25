@@ -3,6 +3,7 @@ import gc
 import json
 import os
 import sys
+from copy import deepcopy
 from glob import glob
 from multiprocessing import Pool
 from typing import Callable
@@ -13,15 +14,7 @@ from loguru import logger
 from omegaconf import DictConfig
 
 
-PREPROCESS_NAME = "preprocess_notranspose"
-
-
-def each_slice(lst, n_slice):
-    s = 0
-    n = len(lst)
-    while s < n:
-        yield lst[s:s + n_slice]
-        s += n_slice
+PREPROCESS_NAME = "preprocess_fixer_notranspose"
 
 
 def preprocess(
@@ -59,16 +52,32 @@ def preprocess(
                 measure_idx = i // target_steps_per_bar
                 step_idx = i % target_steps_per_bar
                 pitchs_per_measure[measure_idx][step_idx] = note.pitch
-        for i, pitchs_per_n_measure in enumerate(each_slice(pitchs_per_measure, target_n_measures)):
+        for i in range(0, len(pitchs_per_measure), target_n_measures):
             # 規定の小節数に満たない場合保存しない
-            if len(pitchs_per_n_measure) < target_n_measures:
-                logger.debug(f"skip because of few length {len(pitchs_per_n_measure)}: {midi_path}")
+            if i + target_n_measures + 1 > len(pitchs_per_measure):
+                logger.debug(f"skip because of few length {len(pitchs_per_measure)} {i}: {midi_path}")
                 continue
-            # 半数以上を休符で占める小節が存在する場合は保存しない
-            n_rests_per_measure = [sum([1 if p == -1 else 0 for p in pitchs]) for pitchs in pitchs_per_n_measure]
-            if any([n_rests >= target_steps_per_bar / 2 for n_rests in n_rests_per_measure]):
-                logger.debug(f"skip because of too many rest: {midi_path}")
+
+            # +1はアウトロ用
+            pitchs_per_n_measure = deepcopy(pitchs_per_measure[i:i + target_n_measures + 1])
+
+            # 最初の小節が休符のみの場合は保存しない
+            if all([p == -1 for p in pitchs_per_n_measure[0]]):
+                logger.debug(f"skip because of all rest: {pitchs_per_n_measure[0]} {midi_path}")
                 continue
+
+            # イントロの追加
+            if i == 0:
+                pitchs_per_n_measure = [[-1] * target_steps_per_bar] + pitchs_per_n_measure
+            else:
+                pitchs_per_n_measure = [deepcopy(pitchs_per_measure[i - 1])] + pitchs_per_n_measure
+
+            # 後処理
+            # イントロは最後の四分音符分のみ使用
+            pitchs_per_n_measure[0][:target_steps_per_quarter * 3] = [-1] * (target_steps_per_quarter * 3)
+            # アウトロは最初の四分音符を伸ばす
+            pitchs_per_n_measure[-1][target_steps_per_quarter * 1:target_steps_per_quarter * 3] = [pitchs_per_n_measure[-1][target_steps_per_quarter * 1 - 1]] * (target_steps_per_quarter * 2)
+            pitchs_per_n_measure[-1][target_steps_per_quarter * 3:] = [-1] * target_steps_per_quarter
 
             # 規定の小節数ごとに保存
             output_path = os.path.join(output_dir, midi_basename_root + f"_{i}" + ".json")
@@ -95,7 +104,7 @@ def maestro(preprocess_fn: Callable) -> None:
     args = []
     for midi_path in glob("data/input/maestro/maestro-v3.0.0/*/*.midi"):
         args.append((midi_path, os.path.join(f"data/{PREPROCESS_NAME}/maestro", midi_path.split("/")[-2])))
-    with Pool(processes=None) as pool:
+    with Pool(processes=max(os.cpu_count() - 4, 1)) as pool:
         pool.starmap(preprocess_fn, args)
 
 
@@ -116,7 +125,7 @@ def lakh(preprocess_fn: Callable) -> None:
         args.append((midi_path, os.path.join(f"data/{PREPROCESS_NAME}/lakh", midi_path.split("/")[-2])))
 
     logger.info(f"midi file count: {len(args)}")
-    with Pool(processes=max(os.cpu_count() - 1, 1)) as pool:
+    with Pool(processes=max(os.cpu_count() - 4, 1)) as pool:
         pool.starmap(preprocess_fn, args)
 
 
@@ -140,7 +149,7 @@ def lakh_matched(preprocess_fn: Callable) -> None:
     args = list(args.values())
 
     logger.info(f"midi file count: {len(args)}")
-    with Pool(processes=max(os.cpu_count() - 1, 1)) as pool:
+    with Pool(processes=max(os.cpu_count() - 4, 1)) as pool:
         pool.starmap(preprocess_fn, args)
 
 
@@ -151,7 +160,7 @@ def infinite_bach(preprocess_fn: Callable) -> None:
         args.append((midi_path, f"data/{PREPROCESS_NAME}/infinite_bach"))
 
     logger.info(f"midi file count: {len(args)}")
-    with Pool(processes=os.cpu_count()) as pool:
+    with Pool(processes=max(os.cpu_count() - 4, 1)) as pool:
         pool.starmap(preprocess_fn, args)
 
 
@@ -162,11 +171,11 @@ def weimar_midi(preprocess_fn: Callable) -> None:
         args.append((midi_path, f"data/{PREPROCESS_NAME}/weimar_midi"))
 
     logger.info(f"midi file count: {len(args)}")
-    with Pool(processes=os.cpu_count()) as pool:
+    with Pool(processes=max(os.cpu_count() - 4, 1)) as pool:
         pool.starmap(preprocess_fn, args)
 
 
-@hydra.main(version_base=None, config_path="../../conf/musicvae", config_name="config")
+@hydra.main(version_base=None, config_path="../../conf/melodyfixer", config_name="config")
 def main(cfg: DictConfig) -> None:
     logger.remove()
     logger.add(sys.stderr, level=cfg.logger.level)

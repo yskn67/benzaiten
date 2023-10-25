@@ -6,7 +6,6 @@ import torch.optim as optim
 import torch.nn.functional as F
 import lightning.pytorch as pl
 from loguru import logger
-from torch.optim.lr_scheduler import MultiStepLR
 
 
 MODE = Literal["pretrain", "finetune"]
@@ -195,13 +194,23 @@ class MusicVaeModel(pl.LightningModule):
 
     def configure_optimizers(self):
         if self.mode == "pretrain":
-            optimizer = optim.Adam(self.parameters(), lr=1e-2)
-            scheduler = MultiStepLR(optimizer, milestones=[40, 80, 120, 160, 200], gamma=0.5)
+            lr=1e-3
+            min_lr=5e-5
+            patience=20
         else:
-            optimizer = optim.Adam(self.parameters(), lr=1e-3)
-            scheduler = MultiStepLR(optimizer, milestones=[40, 80, 120, 160, 200], gamma=0.5)
+            lr=1e-4
+            min_lr=1e-5
+            patience=5
 
-        return [optimizer], [scheduler]
+        optimizer = optim.AdamW(self.parameters(), lr=lr, weight_decay=0.01)
+        return {
+            "optimizer": optimizer,
+            "lr_scheduler": {
+                "scheduler": optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.8, patience=patience, min_lr=min_lr, verbose=True),
+                "monitor": "train_loss_epoch",
+                "interval": "epoch",
+            },
+        }
 
 
 if __name__ == '__main__':
