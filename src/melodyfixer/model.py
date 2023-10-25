@@ -8,6 +8,8 @@ import torch.optim as optim
 import torch.nn.functional as F
 import lightning.pytorch as pl
 from torchaudio.models import Conformer
+from timm.scheduler import CosineLRScheduler
+from transformers import get_cosine_schedule_with_warmup
 from loguru import logger
 
 
@@ -123,19 +125,18 @@ class MelodyFixerModel(pl.LightningModule):
     def configure_optimizers(self):
         if self.mode == "pretrain":
             lr=1e-3
-            min_lr=5e-5
-            patience=20
+            min_lr=3e-5
+            t_initial = 500
         else:
-            lr=1e-4
+            lr=3e-4
             min_lr=1e-5
-            patience=5
+            t_initial = 100
 
         optimizer = optim.AdamW(self.parameters(), lr=lr, weight_decay=0.01)
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
-                "scheduler": optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.8, patience=patience, min_lr=min_lr, verbose=True),
-                "monitor": "train_loss_epoch",
+                "scheduler": CosineLRScheduler(optimizer, t_initial=t_initial, lr_min=min_lr, warmup_t=20, warmup_lr_init=1e-5, warmup_prefix=True),
                 "interval": "epoch",
             },
         }

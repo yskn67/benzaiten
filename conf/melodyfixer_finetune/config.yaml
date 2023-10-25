@@ -3,17 +3,17 @@ pretrain_name: sample
 model:
   mode: finetune
 train:
-  pretrain_output_dir: "data/output/musicvae"
+  pretrain_output_dir: "data/output/melodyfixer"
   batch_size: 32
   max_epochs: 100
   patience: 10
 generate:
   input_dir: "data/input/origin"
-  output_dir: "data/output/musicvae_finetune"
+  output_dir: "data/output/melodyfixer_finetune"
   backing_file: sample4_backing.mid
   chord_file: sample4_chord.csv
   submission_midi_file: output_sample4.mid
   full_midi_file: output_sample4_full.mid
-  wav_file: "musicvae_finetune.wav"
+  wav_file: "melodyfixer_finetune.wav"
 logger:
   level: "INFO"

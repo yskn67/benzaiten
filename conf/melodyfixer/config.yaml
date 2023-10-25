@@ -7,17 +7,16 @@ data:
   intro_blank_measures: 3
 model:
   mode: pretrain
-  latent_dim: 128
-  encoder_hidden_dim: 1024
-  decoder_hidden_dim: 1024
+  hidden_dim: 128
+  n_mask: 4
 train:
-  input_dir: "data/preprocess"
+  input_dir: "data/preprocess_fixer"
   batch_size: 32
   max_epochs: 500
   patience: 50
 generate:
-  output_dir: "data/output/musicvae"
-  midi_file: "musicvae.mid"
-  wav_file: "musicvae.wav"
+  output_dir: "data/output/melodyfixer"
+  midi_file: "melodyfixer.mid"
+  wav_file: "melodyfixer.wav"
 logger:
   level: "INFO"

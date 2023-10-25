@@ -14,10 +14,10 @@ from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 
 from dataset import make_finetune_dataset
-from model import MusicVaeModel
+from model import MelodyFixerModel
 
 
-@hydra.main(version_base=None, config_path="../../conf/musicvae_finetune", config_name="config")
+@hydra.main(version_base=None, config_path="../../conf/melodyfixer_finetune", config_name="config")
 def main(cfg: DictConfig) -> None:
     logger.remove()
     logger.add(sys.stderr, level=cfg.logger.level)
@@ -43,20 +43,20 @@ def main(cfg: DictConfig) -> None:
     )
     dl = torch.utils.data.DataLoader(dataset=ds, batch_size=cfg.train.batch_size, shuffle=True, num_workers=max(os.cpu_count(), 1))
 
-    model = MusicVaeModel.load_from_checkpoint(
+    model = MelodyFixerModel.load_from_checkpoint(
         pretrain_checkpoint_path,
         mode=cfg.model.mode,
-        encoder_hidden_dim=pretrain_cfg.model.encoder_hidden_dim,
-        decoder_hidden_dim=pretrain_cfg.model.decoder_hidden_dim,
-        latent_dim=pretrain_cfg.model.latent_dim,
+        hidden_dim=pretrain_cfg.model.hidden_dim,
+        output_dim=129,
+        n_measures=pretrain_cfg.data.n_measures,
         n_steps_per_measure=pretrain_cfg.data.n_beats * pretrain_cfg.data.n_parts_of_beat,
     )
 
     # lightning_logger = CSVLogger("logs/musicvae_finetune/")
     lightning_logger = WandbLogger(
-        project="benzaiten-musicvae-finetune",
+        project="benzaiten-melodyfixer-finetune",
         name=f"{cfg.name}-{datetime.now().isoformat()}",
-        save_dir="logs/musicvae_finetune",
+        save_dir="logs/melodyfixer_finetune",
         log_model=True,
     )
     checkpoint_callback = ModelCheckpoint(save_top_k=1, monitor="train_loss_epoch")

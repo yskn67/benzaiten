@@ -9,7 +9,7 @@ import torch.nn.functional as F
 from score import Score
 
 
-class MusicVaeDataset(torch.utils.data.Dataset):
+class MelodyFixerDataset(torch.utils.data.Dataset):
 
     def __init__(self, files: list[str]) -> None:
         self.files = files
@@ -22,24 +22,13 @@ class MusicVaeDataset(torch.utils.data.Dataset):
             pitchs_per_measure = json.load(f)
 
         # 休符(-1)は128番目に割り当てる
-        pitchs_per_measure = [[128 if p == -1 else p for p in pitchs] for pitchs in pitchs_per_measure]
-        # 一つ前のpitchを入力とする
-        input_pitchs_per_measure = []
-        previous_pitch = 128
-        for pitchs in pitchs_per_measure:
-            input_pitchs = [previous_pitch] + pitchs[:-1]
-            input_pitchs_per_measure.append(input_pitchs)
-            previous_pitch = pitchs[-1]
-
-        pitchs = [p for pitchs in pitchs_per_measure for p in pitchs]
+        notes = [128 if p == -1 else p for pitchs in pitchs_per_measure for p in pitchs]
         return {
-            "inputs": F.one_hot(torch.tensor(input_pitchs_per_measure, dtype=torch.long), num_classes=129).float(),
-            "notes": F.one_hot(torch.tensor(pitchs, dtype=torch.long), num_classes=129).float(),
-            "labels": torch.tensor(pitchs, dtype=torch.long),
+            "notes": torch.tensor(notes, dtype=torch.long),
         }
 
 
-class MusicVaeFinetuneDataset(torch.utils.data.Dataset):
+class MelodyFixerFinetuneDataset(torch.utils.data.Dataset):
 
     def __init__(self, data) -> None:
         self.data = data
@@ -61,39 +50,42 @@ class MusicVaeFinetuneDataset(torch.utils.data.Dataset):
             manyhot_chords.append(manyhot_measure_chords)
 
         # 休符(None)は128番目に割り当てる
-        pitchs_per_measure = [[128 if n is None else n.pitch.midi for n in notes] for notes in notes_per_measure]
-        # 一つ前のpitchを入力とする
-        input_pitchs_per_measure = []
-        previous_pitch = 128
-        for pitchs in pitchs_per_measure:
-            input_pitchs = [previous_pitch] + pitchs[:-1]
-            input_pitchs_per_measure.append(input_pitchs)
-            previous_pitch = pitchs[-1]
-
-        pitchs = [p for pitchs in pitchs_per_measure for p in pitchs]
+        notes = [128 if n is None else n.pitch.midi for notes in notes_per_measure for n in notes]
         return {
-            "inputs": F.one_hot(torch.tensor(input_pitchs_per_measure, dtype=torch.long), num_classes=129).float(),
-            "notes": F.one_hot(torch.tensor(pitchs, dtype=torch.long), num_classes=129).float(),
+            "notes": torch.tensor(notes, dtype=torch.long),
             "chords": torch.tensor(np.array(manyhot_chords, dtype=int), dtype=torch.long),
-            "labels": torch.tensor(pitchs, dtype=torch.long),
         }
 
 
-def each_slice(lst, n_slice):
-    s = 0
-    n = len(lst)
-    while s < n:
-        yield lst[s:s + n_slice]
-        s += n_slice
+def _postprocess(notes, n_parts_of_beat: int):
+    # イントロは最後の四分音符分のみ使用
+    notes[0][:n_parts_of_beat * 3] = [None] * (n_parts_of_beat * 3)
+    # アウトロは最初の四分音符を伸ばす
+    notes[-1][n_parts_of_beat * 1:n_parts_of_beat * 3] = [notes[-1][n_parts_of_beat * 1 - 1]] * (n_parts_of_beat * 2)
+    notes[-1][n_parts_of_beat * 3:] = [None] * n_parts_of_beat
+    return notes
 
 
 def _process_score(fpath: str, n_bar: int, n_beats: int, n_parts_of_beat: int) -> list[tuple]:
     data = []
     score = Score.load_musicxml(fpath, n_beats=n_beats, n_parts_of_beat=n_parts_of_beat)
-    for notes, chords in zip(each_slice(score.get_notes(), n_bar), each_slice(score.get_chords(), n_bar)):
-        if len(notes) != n_bar or len(chords) != n_bar:
+    notes_per_measure = score.get_notes()
+    chords_per_measure = score.get_chords()
+    for i in range(0, len(notes_per_measure), n_bar):
+        if i + n_bar + 1 > len(notes_per_measure):
             continue
 
+        if i == 0:
+            notes = [[None] * (n_beats * n_parts_of_beat)] + notes_per_measure[i: i + n_bar + 1]
+            chords = [[chords_per_measure[0][0]] * (n_beats * n_parts_of_beat)] + chords_per_measure[i: i + n_bar + 1]
+        else:
+            notes = notes_per_measure[i - 1: i + n_bar + 1]
+            chords = chords_per_measure[i - 1: i + n_bar + 1]
+
+        if len(notes) != len(chords):
+            continue
+
+        notes = _postprocess(notes, n_parts_of_beat=n_parts_of_beat)
         data.append((notes, chords))
 
     return data
@@ -105,15 +97,14 @@ def make_finetune_dataset(flist: list[str], n_bar: int = 8, n_beats: int = 4, n_
         results = pool.starmap(_process_score, args)
 
     data = [r for results_per_process in results for r in results_per_process]
-    return MusicVaeFinetuneDataset(data)
+    return MelodyFixerFinetuneDataset(data)
 
 
 if __name__ == "__main__":
-    dataset = MusicVaeDataset(files=["data/preprocess/maestro/2004/MIDI-Unprocessed_SMF_02_R1_2004_01-05_ORIG_MID--AUDIO_02_R1_2004_05_Track05_wav_2.json"])
+    dataset = MelodyFixerDataset(files=["data/preprocess_fixer/maestro/2004/MIDI-Unprocessed_SMF_02_R1_2004_01-05_ORIG_MID--AUDIO_02_R1_2004_05_Track05_wav_0.json"])
     print(dataset[0])
+    print(dataset[0]["notes"].size())
     d = make_finetune_dataset(["data/input/openewld/OpenEWLD-0.1/dataset/Albert_Fitz-William_Penn/The_Honeysuckle_and_the_Bee/The_Honeysuckle_and_the_Bee.mxl"])[0]
     print(d)
-    print(d["inputs"].size())
     print(d["notes"].size())
     print(d["chords"].size())
-    print(d["labels"].size())
