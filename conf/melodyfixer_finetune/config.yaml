@@ -5,7 +5,7 @@ model:
 train:
   pretrain_output_dir: "data/output/melodyfixer"
   batch_size: 32
-  max_epochs: 200
+  max_epochs: 100
   patience: 5
 generate:
   input_dir: "data/input/origin"

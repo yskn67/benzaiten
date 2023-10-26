@@ -208,6 +208,7 @@ def main(cfg: DictConfig) -> None:
 
     melodyfixer = MelodyFixerModel.load_from_checkpoint(
         melodyfixer_checkpoint_path,
+        map_location="cpu",
         mode=melodyfixer_finetune_cfg.model.mode,
         hidden_dim=melodyfixer_pretrain_cfg.model.hidden_dim,
         output_dim=129,

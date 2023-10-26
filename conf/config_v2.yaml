@@ -1,8 +1,8 @@
 model:
-  musicvae_name: fourth
+  musicvae_name: fifth
   musicvae_path: "data/output/musicvae_finetune"
   melodyfixer_name: first
-  melodyfixer_name: "data/output/melodyfixer_finetune"
+  melodyfixer_path: "data/output/melodyfixer_finetune"
 generate:
   use_melodyfixer: true
   n_mask: 4

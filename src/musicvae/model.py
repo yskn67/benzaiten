@@ -178,7 +178,7 @@ class MusicVaeModel(pl.LightningModule):
 
     def on_train_epoch_start(self) -> None:
         if self.mode == "finetune":
-            if self.current_epoch < 10:
+            if self.current_epoch < 5:
                 logger.info(f"freeze pretrained")
                 for param in self.encoder.parameters():
                     param.requires_grad = False
@@ -206,8 +206,8 @@ class MusicVaeModel(pl.LightningModule):
             eta_min=1e-5
             lr=1e-3
         else:
-            warmup_epochs=20
-            max_epochs=200
+            warmup_epochs=10
+            max_epochs=100
             warmup_start_lr=1e-6
             eta_min=1e-6
             lr=3e-4
