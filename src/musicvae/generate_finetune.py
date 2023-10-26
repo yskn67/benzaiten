@@ -223,7 +223,7 @@ def main(cfg: DictConfig) -> None:
         durations,
         12,
         ticks_per_beat=pretrain_cfg.data.ticks_per_beat,
-        intro_blank_measures=3,  # FIXME: configに反映できたら修正する
+        intro_blank_measures=pretrain_cfg.data.intro_blank_measures,
         n_beats=pretrain_cfg.data.n_beats,
         n_parts_of_beat=pretrain_cfg.data.n_parts_of_beat
     )

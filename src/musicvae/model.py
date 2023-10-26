@@ -6,6 +6,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 import lightning.pytorch as pl
 from loguru import logger
+from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 
 
 MODE = Literal["pretrain", "finetune"]
@@ -21,29 +22,34 @@ class Encoder(nn.Module):
             batch_first=True,
             bidirectional=True
         )
+        # NOTE: 一旦local_featuresを無効にしてみる
         # FIXME: とりあえずカーネルサイズやフィルターの数は決め打ち
-        self.local_filter = nn.Conv1d(
-            hidden_dim * 2,  #bidirectionalなので
-            3,  # フィルター数
-            kernel_size=9,
-            padding=4,
-            bias=False
-        )
-        self.linear_mean = nn.Linear(hidden_dim * 4, output_dim)
-        self.linear_lnvar = nn.Linear(hidden_dim * 4, output_dim)
+        # self.local_filter = nn.Conv1d(
+        #     hidden_dim * 2,  #bidirectionalなので
+        #     3,  # フィルター数
+        #     kernel_size=9,
+        #     padding=4,
+        #     bias=False
+        # )
+        self.linear_mean = nn.Linear(hidden_dim * 2, output_dim)
+        self.linear_lnvar = nn.Linear(hidden_dim * 2, output_dim)
 
     def forward(self, batch: dict[str, torch.Tensor]) -> torch.Tensor:
         out, (h, c) = self.rnn(batch["notes"])
 
-        local_weights = self.local_filter(out.transpose(1, 2))
-        local_weights = F.softmax(local_weights, dim=1).mean(dim=1)
-        local_features = (out * local_weights.unsqueeze(dim=2)).sum(dim=1)
+        # NOTE: 一旦local_featuresを無効にしてみる
+        # local_weights = self.local_filter(out.transpose(1, 2))
+        # local_weights = F.softmax(local_weights, dim=1).mean(dim=1)
+        # local_features = (out * local_weights.unsqueeze(dim=2)).sum(dim=1)
 
         # FIXME: RNNのlayer数が1前提
         n_layer, batch_size, hidden_dim = h.size()
         global_features = h.transpose(0, 1).reshape((batch_size, n_layer * hidden_dim))
 
-        z = F.tanh(torch.cat([global_features, local_features], dim=1))
+        # NOTE: 一旦local_featuresを無効にしてみる
+        # local_features = torch.zeros_like(local_features, dtype=torch.float, device=local_features.device)
+        # z = F.tanh(torch.cat([global_features, local_features], dim=1))
+        z = F.tanh(global_features)
         mean = self.linear_mean(z)
         lnvar = self.linear_lnvar(z)
         std = torch.exp(0.5 * lnvar)
@@ -194,20 +200,29 @@ class MusicVaeModel(pl.LightningModule):
 
     def configure_optimizers(self):
         if self.mode == "pretrain":
+            warmup_epochs=20
+            max_epochs=300
+            warmup_start_lr=1e-5
+            eta_min=1e-5
             lr=1e-3
-            min_lr=5e-5
-            patience=20
         else:
-            lr=1e-4
-            min_lr=1e-5
-            patience=5
+            warmup_epochs=20
+            max_epochs=200
+            warmup_start_lr=1e-6
+            eta_min=1e-6
+            lr=3e-4
 
         optimizer = optim.AdamW(self.parameters(), lr=lr, weight_decay=0.01)
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
-                "scheduler": optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.8, patience=patience, min_lr=min_lr, verbose=True),
-                "monitor": "train_loss_epoch",
+                "scheduler": LinearWarmupCosineAnnealingLR(
+                    optimizer,
+                    warmup_epochs=warmup_epochs,
+                    max_epochs=max_epochs,
+                    warmup_start_lr=warmup_start_lr,
+                    eta_min=eta_min
+                ),
                 "interval": "epoch",
             },
         }

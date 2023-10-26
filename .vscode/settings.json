@@ -1,0 +1,11 @@
+{
+	"files.watcherExclude": {
+		"data/input/**": true,
+		"data/preprocess/**": true,
+		"data/preprocess_notranspose/**": true,
+		"data/preprocess_fixer/**": true,
+		"data/preprocess_fixer_notranspose/**": true,
+		"logs/**": true
+	}
+
+}

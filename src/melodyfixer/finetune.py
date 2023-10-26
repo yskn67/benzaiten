@@ -48,7 +48,7 @@ def main(cfg: DictConfig) -> None:
         mode=cfg.model.mode,
         hidden_dim=pretrain_cfg.model.hidden_dim,
         output_dim=129,
-        n_measures=pretrain_cfg.data.n_measures,
+        n_measures=pretrain_cfg.data.n_measures + 2,
         n_steps_per_measure=pretrain_cfg.data.n_beats * pretrain_cfg.data.n_parts_of_beat,
     )
 

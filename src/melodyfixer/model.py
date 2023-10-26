@@ -8,9 +8,8 @@ import torch.optim as optim
 import torch.nn.functional as F
 import lightning.pytorch as pl
 from torchaudio.models import Conformer
-from timm.scheduler import CosineLRScheduler
-from transformers import get_cosine_schedule_with_warmup
 from loguru import logger
+from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 
 
 MODE = Literal["pretrain", "finetune"]
@@ -72,6 +71,7 @@ class MelodyFixerModel(pl.LightningModule):
                 mask = torch.ones(self.n_steps, self.hidden_dim, dtype=torch.float, device=device)
                 for idx in np.random.permutation(range(self.n_measures))[:self.n_mask]:
                     mask[idx * self.n_steps_per_measure:(idx + 1) * self.n_steps_per_measure, :] = 0.
+                masks.append(mask.unsqueeze(0))
             masks = torch.cat(masks, dim=0)
             masked_melody_embedding = melody_embedding * masks
         else:
@@ -87,7 +87,6 @@ class MelodyFixerModel(pl.LightningModule):
             chord_embedding = torch.zeros(batch_size, self.n_steps, self.hidden_dim, dtype=torch.float, device=device)
 
         embedding = self.pe(masked_melody_embedding + chord_embedding)
-
         lengths = torch.ones(batch_size, dtype=torch.long, device=device) * self.n_steps
         out, _ = self.conformer(embedding, lengths)
         return self.linear(out)
@@ -106,16 +105,12 @@ class MelodyFixerModel(pl.LightningModule):
                 logger.info(f"freeze pretrained")
                 for param in self.melody_embedding.parameters():
                     param.requires_grad = False
-                for param in self.chord_embedding.parameters():
-                    param.requires_grad = False
                 for param in self.conformer.parameters():
                     param.requires_grad = False
                 for param in self.linear.parameters():
                     param.requires_grad = False
             else:
                 for param in self.melody_embedding.parameters():
-                    param.requires_grad = True
-                for param in self.chord_embedding.parameters():
                     param.requires_grad = True
                 for param in self.conformer.parameters():
                     param.requires_grad = True
@@ -124,32 +119,41 @@ class MelodyFixerModel(pl.LightningModule):
 
     def configure_optimizers(self):
         if self.mode == "pretrain":
+            warmup_epochs=20
+            max_epochs=300
+            warmup_start_lr=1e-5
+            eta_min=1e-5
             lr=1e-3
-            min_lr=3e-5
-            t_initial = 500
         else:
+            warmup_epochs=20
+            max_epochs=200
+            warmup_start_lr=1e-6
+            eta_min=1e-6
             lr=3e-4
-            min_lr=1e-5
-            t_initial = 100
 
         optimizer = optim.AdamW(self.parameters(), lr=lr, weight_decay=0.01)
         return {
             "optimizer": optimizer,
             "lr_scheduler": {
-                "scheduler": CosineLRScheduler(optimizer, t_initial=t_initial, lr_min=min_lr, warmup_t=20, warmup_lr_init=1e-5, warmup_prefix=True),
+                "scheduler": LinearWarmupCosineAnnealingLR(
+                    optimizer,
+                    warmup_epochs=warmup_epochs,
+                    max_epochs=max_epochs,
+                    warmup_start_lr=warmup_start_lr,
+                    eta_min=eta_min
+                ),
                 "interval": "epoch",
             },
         }
 
 
 if __name__ == '__main__':
-    elf, hidden_dim: int, output_dim: int, n_measures: int = 10, n_steps_per_measure: int = 16, n_mask: int = 4, mode: MODE = "pretrain")
     hidden_dim = 128
     n_measures = 10
     n_steps_per_measure = 16
-    model = MelodyFixerModel(hidden_dim=hidden_dim, output_dim=129, n_measures=n_measures, n_steps_per_measure=n_steps_per_measure, n_mask=4, map_location)
-    notes = torch.randint(129, (n_measures * n_steps_per_measure,)).unsqueeze(0).float()
-    chords = F.one_hot(torch.randint(12, (n_measures * n_steps_per_measure,)), num_classes=12).unsqueeze(0).float()
+    model = MelodyFixerModel(hidden_dim=hidden_dim, output_dim=129, n_measures=n_measures, n_steps_per_measure=n_steps_per_measure, n_mask=4)
+    notes = torch.randint(129, (n_measures * n_steps_per_measure,)).unsqueeze(0)
+    chords = F.one_hot(torch.randint(12, (n_measures * n_steps_per_measure,)), num_classes=12).unsqueeze(0)
 
     out = model.forward({"notes": notes})
     print(out.size())

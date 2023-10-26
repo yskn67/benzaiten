@@ -13,11 +13,11 @@ from lightning.pytorch.loggers import CSVLogger, WandbLogger
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 
-from dataset import MusicVaeDataset
-from model import MusicVaeModel
+from dataset import MelodyFixerDataset
+from model import MelodyFixerModel
 
 
-@hydra.main(version_base=None, config_path="../../conf/musicvae", config_name="config")
+@hydra.main(version_base=None, config_path="../../conf/melodyfixer", config_name="config")
 def main(cfg: DictConfig) -> None:
     logger.remove()
     logger.add(sys.stderr, level=cfg.logger.level)
@@ -35,21 +35,21 @@ def main(cfg: DictConfig) -> None:
     flist = maestro + lakh_matched + infinite_bach + weimar_midi
     logger.info(f"total: {len(flist)}")
 
-    ds = MusicVaeDataset(files=flist)
+    ds = MelodyFixerDataset(files=flist)
     dl = torch.utils.data.DataLoader(dataset=ds, batch_size=cfg.train.batch_size, shuffle=True, num_workers=max(os.cpu_count(), 1))
-    model = MusicVaeModel(
+    model = MelodyFixerModel(
         mode=cfg.model.mode,
-        encoder_hidden_dim=cfg.model.encoder_hidden_dim,
-        decoder_hidden_dim=cfg.model.decoder_hidden_dim,
-        latent_dim=cfg.model.latent_dim,
+        hidden_dim=cfg.model.hidden_dim,
+        output_dim=129,
+        n_measures=cfg.data.n_measures + 2,
         n_steps_per_measure=cfg.data.n_beats * cfg.data.n_parts_of_beat,
     )
 
     # lightning_logger = CSVLogger("logs/musicvae/")
     lightning_logger = WandbLogger(
-        project="benzaiten-musicvae",
+        project="benzaiten-melodyfixer",
         name=f"{cfg.name}-{datetime.now().isoformat()}",
-        save_dir="logs/musicvae",
+        save_dir="logs/melodyfixer",
         log_model=True,
     )
     checkpoint_callback = ModelCheckpoint(save_top_k=1, monitor="train_loss_epoch")

@@ -12,7 +12,7 @@ model:
 train:
   input_dir: "data/preprocess_fixer"
   batch_size: 32
-  max_epochs: 500
+  max_epochs: 300
   patience: 50
 generate:
   output_dir: "data/output/melodyfixer"
