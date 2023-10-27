@@ -11,7 +11,7 @@ from loguru import logger
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 
 
-MODE = Literal["pretrain", "finetune"]
+MODE = Literal["pretrain", "finetune", "inference"]
 
 
 class PositionalEncoding(nn.Module):
@@ -37,13 +37,23 @@ class PositionalEncoding(nn.Module):
 
 class MelodyFixerModel(pl.LightningModule):
 
-    def __init__(self, hidden_dim: int, output_dim: int, n_measures: int = 10, n_steps_per_measure: int = 16, n_mask: int = 4, mode: MODE = "pretrain") -> None:
+    def __init__(
+            self,
+            hidden_dim: int,
+            output_dim: int,
+            n_measures: int = 10,
+            n_steps_per_measure: int = 16,
+            n_mask: int = 4,
+            mode: MODE = "pretrain",
+            mask_measures: list[int] | None = None,
+        ) -> None:
         super().__init__()
         self.mode = mode
         self.n_measures = n_measures
         self.n_steps_per_measure = n_steps_per_measure
         self.n_steps = n_measures * n_steps_per_measure
         self.n_mask = n_mask
+        self.mask_measures = mask_measures
         self.transformer = nn.TransformerEncoder(
             nn.TransformerEncoderLayer(
                 d_model=hidden_dim,
@@ -69,7 +79,11 @@ class MelodyFixerModel(pl.LightningModule):
             masks= []
             for _ in range(batch_size):
                 mask = torch.ones(self.n_steps, self.hidden_dim, dtype=torch.float, device=device)
-                for idx in np.random.permutation(range(self.n_measures))[:self.n_mask]:
+                if self.mode == "inference" and self.mask_measures is not None:
+                    mask_idx = self.mask_measures
+                else:
+                    mask_idx = np.random.permutation(range(self.n_measures))[:self.n_mask]
+                for idx in mask_idx:
                     mask[idx * self.n_steps_per_measure:(idx + 1) * self.n_steps_per_measure, :] = 0.
                 masks.append(mask.unsqueeze(0))
             masks = torch.cat(masks, dim=0)

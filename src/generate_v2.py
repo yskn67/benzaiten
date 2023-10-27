@@ -206,15 +206,19 @@ def main(cfg: DictConfig) -> None:
     )
     musicvae.eval()
 
+    mask_measures = None
+    if cfg.generate.mode == "inference" and len(cfg.generate.mask_measures) > 0:
+        mask_measures = [int(m) for m in cfg.generate.mask_measures.split(",")]
     melodyfixer = MelodyFixerModel.load_from_checkpoint(
         melodyfixer_checkpoint_path,
         map_location="cpu",
-        mode=melodyfixer_finetune_cfg.model.mode,
+        mode=cfg.generate.mode,
         hidden_dim=melodyfixer_pretrain_cfg.model.hidden_dim,
         output_dim=129,
         n_measures=melodyfixer_pretrain_cfg.data.n_measures + 2,
         n_steps_per_measure=melodyfixer_pretrain_cfg.data.n_beats * melodyfixer_pretrain_cfg.data.n_parts_of_beat,
         n_mask=cfg.generate.n_mask,
+        mask_measures=mask_measures,
     )
     melodyfixer.eval()
 
