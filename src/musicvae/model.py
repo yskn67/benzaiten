@@ -201,7 +201,7 @@ class MusicVaeModel(pl.LightningModule):
     def configure_optimizers(self):
         if self.mode == "pretrain":
             warmup_epochs=20
-            max_epochs=300
+            max_epochs=100
             warmup_start_lr=1e-5
             eta_min=1e-5
             lr=1e-3

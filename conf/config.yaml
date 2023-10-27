@@ -1,7 +1,7 @@
 model:
-  musicvae_name: sixth
+  musicvae_name: eighth
   musicvae_path: "data/output/musicvae_finetune"
-  melodyfixer_name: second
+  melodyfixer_name: third
   melodyfixer_path: "data/output/melodyfixer_finetune"
 generate:
   mode: inference
