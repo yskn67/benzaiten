@@ -1,5 +1,5 @@
 model:
-  musicvae_name: fifth
+  musicvae_name: sixth
   musicvae_path: "data/output/musicvae_finetune"
   melodyfixer_name: second
   melodyfixer_path: "data/output/melodyfixer_finetune"
