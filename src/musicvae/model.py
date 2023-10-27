@@ -178,7 +178,7 @@ class MusicVaeModel(pl.LightningModule):
 
     def on_train_epoch_start(self) -> None:
         if self.mode == "finetune":
-            if self.current_epoch < 2:
+            if self.current_epoch < 5:
                 logger.info(f"freeze pretrained")
                 for param in self.encoder.parameters():
                     param.requires_grad = False
@@ -206,11 +206,11 @@ class MusicVaeModel(pl.LightningModule):
             eta_min=1e-5
             lr=1e-3
         else:
-            warmup_epochs=5
-            max_epochs=50
-            warmup_start_lr=1e-6
-            eta_min=1e-6
-            lr=1e-4
+            warmup_epochs=20
+            max_epochs=80
+            warmup_start_lr=1e-5
+            eta_min=1e-5
+            lr=1e-3
 
         optimizer = optim.AdamW(self.parameters(), lr=lr, weight_decay=0.01)
         return {
