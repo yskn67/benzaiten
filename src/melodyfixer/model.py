@@ -7,7 +7,6 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 import lightning.pytorch as pl
-from torchaudio.models import Conformer
 from loguru import logger
 from pl_bolts.optimizers.lr_scheduler import LinearWarmupCosineAnnealingLR
 
@@ -45,13 +44,14 @@ class MelodyFixerModel(pl.LightningModule):
         self.n_steps_per_measure = n_steps_per_measure
         self.n_steps = n_measures * n_steps_per_measure
         self.n_mask = n_mask
-        self.conformer = Conformer(
-            input_dim=hidden_dim,
-            num_heads=4,
-            ffn_dim=hidden_dim,
+        self.transformer = nn.TransformerEncoder(
+            nn.TransformerEncoderLayer(
+                d_model=hidden_dim,
+                nhead=4,
+                dim_feedforward=hidden_dim,
+                batch_first=True
+            ),
             num_layers=4,
-            depthwise_conv_kernel_size=13,
-            dropout=0.1,
         )
         self.melody_embedding = nn.Embedding(129, hidden_dim)
         self.chord_embedding = nn.Embedding(12, hidden_dim)
@@ -87,8 +87,7 @@ class MelodyFixerModel(pl.LightningModule):
             chord_embedding = torch.zeros(batch_size, self.n_steps, self.hidden_dim, dtype=torch.float, device=device)
 
         embedding = self.pe(masked_melody_embedding + chord_embedding)
-        lengths = torch.ones(batch_size, dtype=torch.long, device=device) * self.n_steps
-        out, _ = self.conformer(embedding, lengths)
+        out = self.transformer(embedding)
         return self.linear(out)
 
     def training_step(self, batch: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
@@ -101,32 +100,32 @@ class MelodyFixerModel(pl.LightningModule):
 
     def on_train_epoch_start(self) -> None:
         if self.mode == "finetune":
-            if self.current_epoch < 10:
+            if self.current_epoch < 5:
                 logger.info(f"freeze pretrained")
                 for param in self.melody_embedding.parameters():
                     param.requires_grad = False
-                for param in self.conformer.parameters():
+                for param in self.transformer.parameters():
                     param.requires_grad = False
                 for param in self.linear.parameters():
                     param.requires_grad = False
             else:
                 for param in self.melody_embedding.parameters():
                     param.requires_grad = True
-                for param in self.conformer.parameters():
+                for param in self.transformer.parameters():
                     param.requires_grad = True
                 for param in self.linear.parameters():
                     param.requires_grad = True
 
     def configure_optimizers(self):
         if self.mode == "pretrain":
-            warmup_epochs=20
-            max_epochs=300
+            warmup_epochs=10
+            max_epochs=100
             warmup_start_lr=1e-5
             eta_min=1e-5
             lr=1e-3
         else:
-            warmup_epochs=20
-            max_epochs=200
+            warmup_epochs=10
+            max_epochs=100
             warmup_start_lr=1e-6
             eta_min=1e-6
             lr=3e-4
