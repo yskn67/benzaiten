@@ -57,7 +57,7 @@ class MelodyFixerModel(pl.LightningModule):
         self.transformer = nn.TransformerEncoder(
             nn.TransformerEncoderLayer(
                 d_model=hidden_dim,
-                nhead=4,
+                nhead=8,
                 dim_feedforward=hidden_dim,
                 batch_first=True
             ),
@@ -132,8 +132,8 @@ class MelodyFixerModel(pl.LightningModule):
 
     def configure_optimizers(self):
         if self.mode == "pretrain":
-            warmup_epochs=10
-            max_epochs=100
+            warmup_epochs=20
+            max_epochs=200
             warmup_start_lr=1e-5
             eta_min=1e-5
             lr=1e-3
