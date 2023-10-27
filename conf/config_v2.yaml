@@ -7,12 +7,12 @@ generate:
   use_melodyfixer: true
   n_mask: 4
 data:
-  input_dir: "data/input/origin"
-  output_dir: "data/output/final"
-  backing_file: sample1_backing.mid
-  chord_file: sample1_chord.csv
-  submission_midi_file: output_sample1.mid
-  full_midi_file: output_sample1_full.mid
+  input_dir: "data/input/demo"
+  output_dir: "data/output/demo"
+  backing_file: sample3_backing.mid
+  chord_file: sample3_chord.csv
+  submission_midi_file: output_sample3.mid
+  full_midi_file: output_sample3_full.mid
   wav_file: final.wav
 logger:
   level: "INFO"
