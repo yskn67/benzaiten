@@ -242,11 +242,7 @@ def main(cfg: DictConfig) -> None:
             }
             out = melodyfixer.forward(batch)
 
-    if cfg.generate.use_melodyfixer:
-        out = out.squeeze(0)
-    else:
-        out = postprocess(out.squeeze(0), n_parts_of_beat=musicvae_pretrain_cfg.data.n_parts_of_beat)
-
+    out = postprocess(out.squeeze(0), n_parts_of_beat=musicvae_pretrain_cfg.data.n_parts_of_beat)
     pianoroll = out.numpy()
     notenums = calc_notenums_from_pianoroll(pianoroll, min_note_number=0)
     notenums, durations = calc_durations(notenums)
