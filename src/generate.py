@@ -1,5 +1,6 @@
-import os
 import csv
+import os
+import sys
 
 import hydra
 import torch
@@ -7,9 +8,14 @@ import numpy as np
 import music21
 import mido
 import midi2audio
-from omegaconf import DictConfig
+from loguru import logger
+from omegaconf import DictConfig, OmegaConf
 
-from model import Seq2SeqMelodyGenerationModel
+from musicvae.model import MusicVaeModel
+from melodyfixer.model import MelodyFixerModel
+
+
+MELODY_CH = 0
 
 
 def read_chord_file(file: str, n_beats: int = 4, n_parts_of_beat: int = 4) -> list[list[music21.harmony.ChordSymbol]]:
@@ -23,8 +29,12 @@ def read_chord_file(file: str, n_beats: int = 4, n_parts_of_beat: int = 4) -> li
 
             csv_data[m].append(row)
 
+    # イントロ用
+    # イントロの小節は1小節目の最初のコードを利用する
+    csv_data[-1]= [["-1"] + row[1:] for row in csv_data[0]]
+
     chords = []
-    for m, rows in csv_data.items():
+    for m, rows in sorted(csv_data.items(), key=lambda x: x[0]):
         chords_per_measure = [None] * n_beats * n_parts_of_beat
         for row in rows:
             b = int(row[1]) # 拍番号（0始まり、今回は0または2）
@@ -42,28 +52,41 @@ def read_chord_file(file: str, n_beats: int = 4, n_parts_of_beat: int = 4) -> li
     return chords
 
 
-class TransformOnehotInference:
-
-    def __init__(self, min_note_number: int = 36, max_note_number: int = 89) -> None:
-        self.min_note_number = min_note_number
-        self.max_note_number = max_note_number
-        # 休符用に1次元増やす
-        self.note_range = max_note_number - min_note_number + 1
-
-    def transform(self, chords) -> list[np.array]:
-        manyhot_chords = []
-        for bar_chords in chords:
-            manyhot_bar_chords = np.zeros((len(bar_chords), 12), dtype=int)
-            for i, chord in enumerate(bar_chords):
-                if chord is not None:
-                    for note in chord._notes:
-                        manyhot_bar_chords[i, note.pitch.midi % 12] = 1
-            manyhot_chords.append(manyhot_bar_chords)
-        return manyhot_chords
+def transform_manyhot_chords(chords: list[list[music21.harmony.ChordSymbol]]) -> np.array:
+    manyhot_chords = []
+    for bar_chords in chords:
+        manyhot_bar_chords = np.zeros((len(bar_chords), 12), dtype=int)
+        for i, chord in enumerate(bar_chords):
+            if chord is not None:
+                for note in chord._notes:
+                    manyhot_bar_chords[i, note.pitch.midi % 12] = 1
+        manyhot_chords.append(manyhot_bar_chords)
+    return np.array(manyhot_chords, dtype=int)
 
 
-# ピアノロール（one-hot vector列）をノートナンバー列に変換
+def postprocess(out: torch.Tensor, n_parts_of_beat: int = 4) -> torch.Tensor:
+    """
+    モデルの出力の後処理
+    イントロは最後の四分音符分だけ出力し，それ以外を休符とする
+    アウトロは最初の四分音符分の最後の音を四分音符2つ分のばす
+    """
+    # イントロ処理
+    out[:n_parts_of_beat * 3, :] = 0.
+    out[:n_parts_of_beat * 3, -1] = 1.
+
+    # アウトロ処理
+    padding_melody = out[-n_parts_of_beat * 3 - 1, :]
+    out[-n_parts_of_beat * 3:-n_parts_of_beat * 1, :] = padding_melody.unsqueeze(0).repeat(n_parts_of_beat * 2, 1)
+    out[-n_parts_of_beat * 1:, :] = 0.
+    out[-n_parts_of_beat * 1:, -1] = 1.
+
+    return out
+
+
 def calc_notenums_from_pianoroll(pianoroll, min_note_number: int = 36):
+    """
+    ピアノロール（one-hot vector列）をノートナンバー列に変換
+    """
     notenums = []
     for i in range(pianoroll.shape[0]):
         n = np.argmax(pianoroll[i, :])
@@ -72,8 +95,10 @@ def calc_notenums_from_pianoroll(pianoroll, min_note_number: int = 36):
     return notenums
 
 
-# 連続するノートナンバーを統合して (notenums, durations) に変換
 def calc_durations(notenums):
+    """
+    連続するノートナンバーを統合して (notenums, durations) に変換
+    """
     N = len(notenums)
     duration = [1] * N
     for i in range(N):
@@ -112,16 +137,19 @@ class MidiGenerator:
             ticks_per_beat = self.ticks_per_beat
 
         track = mido.MidiTrack()
+        # Logic Proにインポートしたときに空白小節がトリミングされないように、
+        # ダミーのチャンネルメッセージとして、オール・ノート・オフを挿入
+        track.append(mido.Message('control_change', channel=MELODY_CH, control=123, value=0))
         init_tick = self.intro_blank_measures * self.n_beats * ticks_per_beat
         prev_tick = 0
         for i in range(len(self.notenums)):
             if self.notenums[i] > 0:
                 curr_tick = int(i * ticks_per_beat / self.n_parts_of_beat) + init_tick
-                track.append(mido.Message('note_on', note=self.notenums[i] + self.transpose,
+                track.append(mido.Message('note_on', channel=MELODY_CH, note=self.notenums[i] + self.transpose,
                                           velocity=127, time=curr_tick - prev_tick))
                 prev_tick = curr_tick
                 curr_tick = int((i + self.durations[i]) * ticks_per_beat / self.n_parts_of_beat) + init_tick
-                track.append(mido.Message('note_off', note=self.notenums[i] + self.transpose,
+                track.append(mido.Message('note_off', channel=MELODY_CH, note=self.notenums[i] + self.transpose,
                                           velocity=127, time=curr_tick - prev_tick))
                 prev_tick = curr_tick
         return track
@@ -147,46 +175,90 @@ class MidiGenerator:
 
 @hydra.main(version_base=None, config_path="../conf", config_name="config")
 def main(cfg: DictConfig) -> None:
-    chord_file_path = os.path.join(cfg.generate.input_dir, cfg.generate.chord_file)
-    backing_file_path = os.path.join(cfg.generate.input_dir, cfg.generate.backing_file)
-    submission_midi_file_path = os.path.join(cfg.generate.output_dir, cfg.generate.submission_midi_file)
-    full_midi_file_path = os.path.join(cfg.generate.output_dir, cfg.generate.full_midi_file)
-    wav_file_path = os.path.join(cfg.generate.output_dir, "output.wav")
+    logger.remove()
+    logger.add(sys.stderr, level=cfg.logger.level)
 
-    chords = read_chord_file(chord_file_path, n_beats=cfg.data.n_beats, n_parts_of_beat=cfg.data.n_parts_of_beat)
-    manyhot_chords = TransformOnehotInference().transform(chords)
+    os.makedirs(cfg.data.output_dir, exist_ok=True)
+    chord_file_path = os.path.join(cfg.data.input_dir, cfg.data.chord_file)
+    backing_file_path = os.path.join(cfg.data.input_dir, cfg.data.backing_file)
+    submission_midi_file_path = os.path.join(cfg.data.output_dir, cfg.data.submission_midi_file)
+    full_midi_file_path = os.path.join(cfg.data.output_dir, cfg.data.full_midi_file)
+    wav_file_path = os.path.join(cfg.data.output_dir, cfg.data.wav_file)
 
-    model = Seq2SeqMelodyGenerationModel.load_from_checkpoint("lightning_logs/version_1/checkpoints/epoch=99-step=5400.ckpt", map_location="cpu")
-    model.eval()
+    musicvae_artifact_path = os.path.join(cfg.model.musicvae_path, cfg.model.musicvae_name)
+    musicvae_pretrain_cfg = OmegaConf.load(os.path.join(musicvae_artifact_path, "config.pretrain.yaml"))
+    musicvae_finetune_cfg = OmegaConf.load(os.path.join(musicvae_artifact_path, "config.finetune.yaml"))
+    musicvae_checkpoint_path = os.path.join(musicvae_artifact_path, "best_model.ckpt")
+
+    melodyfixer_artifact_path = os.path.join(cfg.model.melodyfixer_path, cfg.model.melodyfixer_name)
+    melodyfixer_pretrain_cfg = OmegaConf.load(os.path.join(melodyfixer_artifact_path, "config.pretrain.yaml"))
+    melodyfixer_finetune_cfg = OmegaConf.load(os.path.join(melodyfixer_artifact_path, "config.finetune.yaml"))
+    melodyfixer_checkpoint_path = os.path.join(melodyfixer_artifact_path, "best_model.ckpt")
+
+    musicvae = MusicVaeModel.load_from_checkpoint(
+        musicvae_checkpoint_path,
+        map_location="cpu",
+        mode=musicvae_finetune_cfg.model.mode,
+        encoder_hidden_dim=musicvae_pretrain_cfg.model.encoder_hidden_dim,
+        decoder_hidden_dim=musicvae_pretrain_cfg.model.decoder_hidden_dim,
+        latent_dim=musicvae_pretrain_cfg.model.latent_dim,
+        n_steps_per_measure=musicvae_pretrain_cfg.data.n_beats * musicvae_pretrain_cfg.data.n_parts_of_beat,
+    )
+    musicvae.eval()
+
+    mask_measures = None
+    if cfg.generate.mode == "inference" and len(cfg.generate.mask_measures) > 0:
+        mask_measures = cfg.generate.mask_measures
+        logger.debug(f"mask_measures: {mask_measures}")
+    melodyfixer = MelodyFixerModel.load_from_checkpoint(
+        melodyfixer_checkpoint_path,
+        map_location="cpu",
+        mode=cfg.generate.mode,
+        hidden_dim=melodyfixer_pretrain_cfg.model.hidden_dim,
+        output_dim=129,
+        n_measures=melodyfixer_pretrain_cfg.data.n_measures + 2,
+        n_steps_per_measure=melodyfixer_pretrain_cfg.data.n_beats * melodyfixer_pretrain_cfg.data.n_parts_of_beat,
+        n_mask=cfg.generate.n_mask,
+        mask_measures=mask_measures,
+    )
+    melodyfixer.eval()
+
+    chords = read_chord_file(
+        chord_file_path,
+        n_beats=musicvae_pretrain_cfg.data.n_beats,
+        n_parts_of_beat=musicvae_pretrain_cfg.data.n_parts_of_beat
+    )
+    manyhot_chords = transform_manyhot_chords(chords)
+    logger.debug(f"manyhot_chords size: {manyhot_chords.shape}")
 
     with torch.no_grad():
-        latent = torch.randn(1, cfg.model.latent_dim)
-        h_n, c_n = (None, None)
-        outs = []
-        for chords_per_measure in manyhot_chords:
+        batch = {
+            "latent": torch.randn(1, musicvae_pretrain_cfg.model.latent_dim).unsqueeze(1).repeat(1, 10, 1),
+            "chords": torch.tensor(manyhot_chords, dtype=torch.long).unsqueeze(0),
+        }
+        logger.debug(f"latent size: {batch['latent'].size()}")
+        logger.debug(f"chords size: {batch['chords'].size()}")
+        out = musicvae.decoder(batch)
+        logger.debug(f"model output size: {out.size()}")
+        if cfg.generate.use_melodyfixer:
             batch = {
-                "latent": latent,
-                "chords": torch.tensor(chords_per_measure, dtype=torch.float).unsqueeze(0)
+                "notes": out.argmax(dim=2),
+                "chords": torch.tensor(manyhot_chords, dtype=torch.long).unsqueeze(0),
             }
-            if h_n is not None:
-                batch['h'] = h_n
-            if c_n is not None:
-                batch['c'] = c_n
-            out, h_n, c_n = model.decoder(batch)
-            outs.append(out.squeeze(0))
-        out = torch.cat(outs, dim=0)
+            out = melodyfixer.forward(batch)
 
+    out = postprocess(out.squeeze(0), n_parts_of_beat=musicvae_pretrain_cfg.data.n_parts_of_beat)
     pianoroll = out.numpy()
-    notenums = calc_notenums_from_pianoroll(pianoroll, min_note_number=cfg.data.min_note_number)
+    notenums = calc_notenums_from_pianoroll(pianoroll, min_note_number=0)
     notenums, durations = calc_durations(notenums)
     midi_generator = MidiGenerator(
         notenums,
         durations,
         12,
-        ticks_per_beat=cfg.data.ticks_per_beat,
-        intro_blank_measures=cfg.data.intro_blank_measures,
-        n_beats=cfg.data.n_beats,
-        n_parts_of_beat=cfg.data.n_parts_of_beat
+        ticks_per_beat=musicvae_pretrain_cfg.data.ticks_per_beat,
+        intro_blank_measures=musicvae_pretrain_cfg.data.intro_blank_measures,
+        n_beats=musicvae_pretrain_cfg.data.n_beats,
+        n_parts_of_beat=musicvae_pretrain_cfg.data.n_parts_of_beat
     )
 
     midi_generator.make_midi_for_submission(submission_midi_file_path)
