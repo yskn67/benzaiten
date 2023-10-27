@@ -10,10 +10,10 @@ train:
 generate:
   input_dir: "data/input/origin"
   output_dir: "data/output/musicvae_finetune"
-  backing_file: sample4_backing.mid
-  chord_file: sample4_chord.csv
-  submission_midi_file: output_sample4.mid
-  full_midi_file: output_sample4_full.mid
+  backing_file: sample1_backing.mid
+  chord_file: sample1_chord.csv
+  submission_midi_file: output_sample1.mid
+  full_midi_file: output_sample1_full.mid
   wav_file: "musicvae_finetune.wav"
 logger:
   level: "INFO"
