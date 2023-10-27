@@ -1,5 +1,20 @@
-defaults:
-  - data: lstm_ohe
-  - model: lstm_ohe
-  - train: lstm_ohe
-  - generate: lstm_ohe
+model:
+  musicvae_name: sixth
+  musicvae_path: "data/output/musicvae_finetune"
+  melodyfixer_name: second
+  melodyfixer_path: "data/output/melodyfixer_finetune"
+generate:
+  mode: inference
+  mask_measures: "1,2"
+  use_melodyfixer: true
+  n_mask: 4
+data:
+  input_dir: "data/input/demo"
+  output_dir: "data/output/demo"
+  backing_file: sample5_backing.mid
+  chord_file: sample5_chord.csv
+  submission_midi_file: output_sample5.mid
+  full_midi_file: output_sample5_full.mid
+  wav_file: final.wav
+logger:
+  level: "INFO"

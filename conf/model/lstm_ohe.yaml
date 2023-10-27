@@ -1,4 +1,0 @@
-melody_dim: 54
-base_dim: 12
-hidden_dim: 1024
-latent_dim: 32

@@ -1,6 +1,0 @@
-input_dir: "data/input/origin"
-output_dir: "data/output"
-backing_file: sample1_backing.mid
-chord_file: sample1_chord.csv
-submission_midi_file: output_sample1.mid
-full_midi_file: output_sample1_full.mid
