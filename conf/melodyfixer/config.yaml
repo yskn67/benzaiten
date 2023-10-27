@@ -7,12 +7,12 @@ data:
   intro_blank_measures: 3
 model:
   mode: pretrain
-  hidden_dim: 128
+  hidden_dim: 256
   n_mask: 4
 train:
   input_dir: "data/preprocess_fixer"
   batch_size: 32
-  max_epochs: 300
+  max_epochs: 100
   patience: 50
 generate:
   output_dir: "data/output/melodyfixer"
