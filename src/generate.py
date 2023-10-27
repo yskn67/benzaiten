@@ -208,7 +208,8 @@ def main(cfg: DictConfig) -> None:
 
     mask_measures = None
     if cfg.generate.mode == "inference" and len(cfg.generate.mask_measures) > 0:
-        mask_measures = [int(m) for m in cfg.generate.mask_measures.split(",")]
+        mask_measures = cfg.generate.mask_measures
+        logger.debug(f"mask_measures: {mask_measures}")
     melodyfixer = MelodyFixerModel.load_from_checkpoint(
         melodyfixer_checkpoint_path,
         map_location="cpu",

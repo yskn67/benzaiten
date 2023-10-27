@@ -5,7 +5,7 @@ model:
   melodyfixer_path: "data/output/melodyfixer_finetune"
 generate:
   mode: inference
-  mask_measures: "1,2"
+  mask_measures: []
   use_melodyfixer: true
   n_mask: 4
 data:
