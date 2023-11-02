@@ -1,3 +1,7 @@
+"""
+These codes are licensed under CC0.
+"""
+
 from __future__ import annotations
 
 import music21

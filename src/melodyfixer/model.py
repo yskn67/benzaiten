@@ -1,4 +1,7 @@
-import math
+"""
+These codes are licensed under CC0.
+"""
+
 from typing import Literal
 
 import numpy as np
@@ -15,24 +18,19 @@ MODE = Literal["pretrain", "finetune", "inference"]
 
 
 class PositionalEncoding(nn.Module):
-    def __init__(self, hidden_dim: int, dropout: float = 0.1, max_len: int = 5000):
-        super().__init__()
-        self.dropout = nn.Dropout(p=dropout)
 
+    def __init__(self, hidden_dim: int, max_len: int = 5000):
+        super().__init__()
         position = torch.arange(max_len).unsqueeze(1)
-        div_term = torch.exp(torch.arange(0, hidden_dim, 2) * (-math.log(10000.0) / hidden_dim))
-        pe = torch.zeros(1, max_len, hidden_dim)
-        pe[0, :, 0::2] = torch.sin(position * div_term)
-        pe[0, :, 1::2] = torch.cos(position * div_term)
-        self.register_buffer('pe', pe)
+        div_term = torch.exp(-np.log(10000.0) * torch.arange(0, hidden_dim, 2) / hidden_dim)
+        positional_encoding = torch.zeros(1, max_len, hidden_dim)
+        positional_encoding[0, :, 0::2] = torch.sin(position * div_term)
+        positional_encoding[0, :, 1::2] = torch.cos(position * div_term)
+        self.register_buffer('positional_encoding', positional_encoding)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-            x: torch.Tensor, shape ``[batch_size, seq_len, embedding_dim]``
-        """
-        x = x + self.pe[:, :x.size(1), :]
-        return self.dropout(x)
+        x = x + self.positional_encoding[:, :x.size(1), :]
+        return x
 
 
 class MelodyFixerModel(pl.LightningModule):
@@ -65,7 +63,8 @@ class MelodyFixerModel(pl.LightningModule):
         )
         self.melody_embedding = nn.Embedding(129, hidden_dim)
         self.chord_embedding = nn.Embedding(12, hidden_dim)
-        self.pe = PositionalEncoding(hidden_dim=hidden_dim, max_len=self.n_steps)
+        self.positional_encoding = PositionalEncoding(hidden_dim=hidden_dim, max_len=self.n_steps)
+        self.dropout = nn.Dropout(p=0.1)
         self.linear = nn.Linear(hidden_dim, output_dim)
         self.hidden_dim = hidden_dim
         self.criterion = nn.CrossEntropyLoss()
@@ -100,7 +99,8 @@ class MelodyFixerModel(pl.LightningModule):
         else:
             chord_embedding = torch.zeros(batch_size, self.n_steps, self.hidden_dim, dtype=torch.float, device=device)
 
-        embedding = self.pe(masked_melody_embedding + chord_embedding)
+        embedding = self.positional_encoding(masked_melody_embedding + chord_embedding)
+        embedding = self.dropout(embedding)
         out = self.transformer(embedding)
         return self.linear(out)
 

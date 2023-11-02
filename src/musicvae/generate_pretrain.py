@@ -1,3 +1,10 @@
+"""
+These codes are licensed under CC0 without following components.
+- calc_notenums_from_pianoroll function
+- calc_durations function
+- MidiGenerator class
+"""
+
 import os
 import sys
 
@@ -12,8 +19,12 @@ from omegaconf import DictConfig, OmegaConf
 from model import MusicVaeModel
 
 
-# ピアノロール（one-hot vector列）をノートナンバー列に変換
 def calc_notenums_from_pianoroll(pianoroll, min_note_number: int = 36):
+    """
+    ピアノロール（one-hot vector列）をノートナンバー列に変換
+    This function is licensed under MIT License.
+    Copyright (C) 2023 北原 鉄朗 (Tetsuro Kitahara)
+    """
     notenums = []
     for i in range(pianoroll.shape[0]):
         n = np.argmax(pianoroll[i, :])
@@ -22,8 +33,12 @@ def calc_notenums_from_pianoroll(pianoroll, min_note_number: int = 36):
     return notenums
 
 
-# 連続するノートナンバーを統合して (notenums, durations) に変換
 def calc_durations(notenums):
+    """
+    連続するノートナンバーを統合して (notenums, durations) に変換
+    This function is licensed under MIT License.
+    Copyright (C) 2023 北原 鉄朗 (Tetsuro Kitahara)
+    """
     N = len(notenums)
     duration = [1] * N
     for i in range(N):
@@ -39,6 +54,10 @@ def calc_durations(notenums):
 
 
 class MidiGenerator:
+    """
+    This class is licensed under MIT License.
+    Copyright (C) 2023 北原 鉄朗 (Tetsuro Kitahara)
+    """
     def __init__(
         self,
         notenums,
