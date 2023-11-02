@@ -3,6 +3,7 @@ These codes are licensed under CC0 without following components.
 - calc_notenums_from_pianoroll function
 - calc_durations function
 - MidiGenerator class
+https://github.com/yskn67/benzaiten/blob/2nd/LICENSE
 """
 
 import os
@@ -24,6 +25,7 @@ def calc_notenums_from_pianoroll(pianoroll, min_note_number: int = 36):
     ピアノロール（one-hot vector列）をノートナンバー列に変換
     This function is licensed under MIT License.
     Copyright (C) 2023 北原 鉄朗 (Tetsuro Kitahara)
+    https://github.com/yskn67/benzaiten/blob/2nd/LICENSE.kitahara
     """
     notenums = []
     for i in range(pianoroll.shape[0]):
@@ -38,6 +40,7 @@ def calc_durations(notenums):
     連続するノートナンバーを統合して (notenums, durations) に変換
     This function is licensed under MIT License.
     Copyright (C) 2023 北原 鉄朗 (Tetsuro Kitahara)
+    https://github.com/yskn67/benzaiten/blob/2nd/LICENSE.kitahara
     """
     N = len(notenums)
     duration = [1] * N
@@ -57,6 +60,7 @@ class MidiGenerator:
     """
     This class is licensed under MIT License.
     Copyright (C) 2023 北原 鉄朗 (Tetsuro Kitahara)
+    https://github.com/yskn67/benzaiten/blob/2nd/LICENSE.kitahara
     """
     def __init__(
         self,
