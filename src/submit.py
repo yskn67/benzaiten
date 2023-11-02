@@ -1,3 +1,7 @@
+"""
+These codes are licensed under CC0.
+"""
+
 import os
 import sys
 import shutil

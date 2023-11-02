@@ -1,3 +1,11 @@
+"""
+These codes are licensed under CC0 without following components.
+- read_chord_file function
+- calc_notenums_from_pianoroll function
+- calc_durations function
+- MidiGenerator class
+"""
+
 import csv
 import os
 import sys
@@ -15,10 +23,11 @@ from musicvae.model import MusicVaeModel
 from melodyfixer.model import MelodyFixerModel
 
 
-MELODY_CH = 0
-
-
 def read_chord_file(file: str, n_beats: int = 4, n_parts_of_beat: int = 4) -> list[list[music21.harmony.ChordSymbol]]:
+    """
+    This function is licensed under MIT License.
+    Copyright (C) 2023 北原 鉄朗 (Tetsuro Kitahara)
+    """
     csv_data = {}  # 小節ごとに
     with open(file) as f:
         reader = csv.reader(f)
@@ -86,6 +95,8 @@ def postprocess(out: torch.Tensor, n_parts_of_beat: int = 4) -> torch.Tensor:
 def calc_notenums_from_pianoroll(pianoroll, min_note_number: int = 36):
     """
     ピアノロール（one-hot vector列）をノートナンバー列に変換
+    This function is licensed under MIT License.
+    Copyright (C) 2023 北原 鉄朗 (Tetsuro Kitahara)
     """
     notenums = []
     for i in range(pianoroll.shape[0]):
@@ -98,6 +109,8 @@ def calc_notenums_from_pianoroll(pianoroll, min_note_number: int = 36):
 def calc_durations(notenums):
     """
     連続するノートナンバーを統合して (notenums, durations) に変換
+    This function is licensed under MIT License.
+    Copyright (C) 2023 北原 鉄朗 (Tetsuro Kitahara)
     """
     N = len(notenums)
     duration = [1] * N
@@ -114,6 +127,10 @@ def calc_durations(notenums):
 
 
 class MidiGenerator:
+    """
+    This class is licensed under MIT License.
+    Copyright (C) 2023 北原 鉄朗 (Tetsuro Kitahara)
+    """
     def __init__(
         self,
         notenums,
@@ -122,7 +139,8 @@ class MidiGenerator:
         ticks_per_beat: int = 480,
         intro_blank_measures: int = 4,
         n_beats: int = 4,
-        n_parts_of_beat: int = 4
+        n_parts_of_beat: int = 4,
+        melody_ch: int = 0
     ) -> None:
         self.notenums = notenums
         self.durations = durations
@@ -131,6 +149,7 @@ class MidiGenerator:
         self.intro_blank_measures = intro_blank_measures
         self.n_beats = n_beats
         self.n_parts_of_beat = n_parts_of_beat
+        self.melody_ch = melody_ch
 
     def _make_midi_track(self, ticks_per_beat=None):
         if ticks_per_beat is None:
@@ -139,25 +158,25 @@ class MidiGenerator:
         track = mido.MidiTrack()
         # Logic Proにインポートしたときに空白小節がトリミングされないように、
         # ダミーのチャンネルメッセージとして、オール・ノート・オフを挿入
-        track.append(mido.Message('control_change', channel=MELODY_CH, control=123, value=0))
+        track.append(mido.Message('control_change', channel=self.melody_ch, control=123, value=0))
         init_tick = self.intro_blank_measures * self.n_beats * ticks_per_beat
         prev_tick = 0
         for i in range(len(self.notenums)):
             if self.notenums[i] > 0:
                 curr_tick = int(i * ticks_per_beat / self.n_parts_of_beat) + init_tick
-                track.append(mido.Message('note_on', channel=MELODY_CH, note=self.notenums[i] + self.transpose,
+                track.append(mido.Message('note_on', channel=self.melody_ch, note=self.notenums[i] + self.transpose,
                                           velocity=127, time=curr_tick - prev_tick))
                 prev_tick = curr_tick
                 curr_tick = int((i + self.durations[i]) * ticks_per_beat / self.n_parts_of_beat) + init_tick
-                track.append(mido.Message('note_off', channel=MELODY_CH, note=self.notenums[i] + self.transpose,
+                track.append(mido.Message('note_off', channel=self.melody_ch, note=self.notenums[i] + self.transpose,
                                           velocity=127, time=curr_tick - prev_tick))
                 prev_tick = curr_tick
         return track
 
-    def _replace_prog_chg(self, midi, melody_ch: int = 0, melody_prog_chg: int = 73):
+    def _replace_prog_chg(self, midi, melody_prog_chg: int = 73):
         for track in midi.tracks:
             for msg in track:
-                if msg.type == 'program_change' and msg.channel == melody_ch:
+                if msg.type == 'program_change' and msg.channel == self.melody_ch:
                     msg.program = melody_prog_chg
 
     def make_midi_for_submission(self, dst_filename):

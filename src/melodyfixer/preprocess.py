@@ -1,3 +1,7 @@
+"""
+These codes are licensed under CC0.
+"""
+
 import functools
 import gc
 import json

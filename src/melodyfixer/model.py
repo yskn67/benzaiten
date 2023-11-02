@@ -1,3 +1,7 @@
+"""
+These codes are licensed under CC0.
+"""
+
 from typing import Literal
 
 import numpy as np

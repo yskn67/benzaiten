@@ -1,3 +1,7 @@
+"""
+These codes are licensed under CC0.
+"""
+
 import glob
 import os
 import shutil
