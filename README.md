@@ -48,9 +48,9 @@ bash bin/generate_multiple.sh
 
 ## License
 
-These codes are licensed under CC0 without specific copyright holder.
+These codes are licensed under MIT License without specific copyright holder.
 
-[![CC0](http://i.creativecommons.org/p/zero/1.0/88x31.png "CC0")](/LICENSE)
+[MIT License](/LICENSE)
 
 Some codes are licensed under MIT License.
 
