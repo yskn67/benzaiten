@@ -1,5 +1,6 @@
 """
-These codes are licensed under CC0 without following components.
+These codes are licensed under MIT License without following components.
+Copyright (C) 2023 yskn67
 - read_chord_file function
 - calc_notenums_from_pianoroll function
 - calc_durations function
